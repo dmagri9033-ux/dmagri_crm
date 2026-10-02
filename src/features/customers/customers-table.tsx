@@ -16,6 +16,7 @@ import {
 } from "@/components/shared/data-grid";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
+import { WhatsAppMessageButton } from "@/components/shared/whatsapp-message-button";
 import { DeleteCustomerButton } from "@/features/customers/delete-customer-button";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
 import type { CustomerWithProduct } from "@/lib/db/customers";
@@ -183,31 +184,38 @@ function CustomerEditableRow({
         />
       </td>
       <td className="p-1.5">
-        <input
-          type="tel"
-          inputMode="tel"
-          className={cn(gridCellInputClass, "tabular-nums")}
-          value={mobile}
-          disabled={!canUpdate}
-          placeholder="Mobile"
-          onFocus={() => {
-            editingMobileRef.current = true;
-          }}
-          onChange={(e) => {
-            mobileDirtyRef.current = true;
-            setMobile(e.target.value);
-            scheduleMobileSave(e.target.value);
-          }}
-          onBlur={() => {
-            editingMobileRef.current = false;
-            if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
-            if (mobile.trim() && mobile !== displayMobile(customer)) {
-              void saveField("mobile", mobile);
-            } else {
-              mobileDirtyRef.current = false;
-            }
-          }}
-        />
+        <div className="flex items-center gap-1">
+          <input
+            type="tel"
+            inputMode="tel"
+            className={cn(gridCellInputClass, "min-w-0 flex-1 tabular-nums")}
+            value={mobile}
+            disabled={!canUpdate}
+            placeholder="Mobile"
+            onFocus={() => {
+              editingMobileRef.current = true;
+            }}
+            onChange={(e) => {
+              mobileDirtyRef.current = true;
+              setMobile(e.target.value);
+              scheduleMobileSave(e.target.value);
+            }}
+            onBlur={() => {
+              editingMobileRef.current = false;
+              if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
+              if (mobile.trim() && mobile !== displayMobile(customer)) {
+                void saveField("mobile", mobile);
+              } else {
+                mobileDirtyRef.current = false;
+              }
+            }}
+          />
+          <WhatsAppMessageButton
+            mobile={mobile}
+            customerName={customer.name}
+            customerId={customer.id}
+          />
+        </div>
       </td>
       <td className="p-1.5">
         <select

@@ -17,6 +17,7 @@ import {
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
 import { DeleteInquiryButton } from "@/features/inquiries/delete-inquiry-button";
+import { WhatsAppMessageButton } from "@/components/shared/whatsapp-message-button";
 import { InquiryStatusActions } from "@/features/inquiries/inquiry-status-actions";
 import { CreateFollowupDialog } from "@/features/follow-ups/create-followup-dialog";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
@@ -224,31 +225,43 @@ function InquiryEditableRow({
       </td>
       <td className="p-1.5">
         <div className="flex flex-col gap-0.5">
-          <input
-            type="tel"
-            inputMode="tel"
-            className={cn(cellInputClass, "font-medium tabular-nums")}
-            value={mobile}
-            disabled={!editable}
-            placeholder="Mobile number"
-            onFocus={() => {
-              editingFieldRef.current = "mobile";
-            }}
-            onChange={(e) => {
-              mobileDirtyRef.current = true;
-              setMobile(e.target.value);
-              scheduleMobileSave(e.target.value);
-            }}
-            onBlur={() => {
-              editingFieldRef.current = null;
-              if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
-              if (mobile.trim() && mobile !== displayMobile(inquiry)) {
-                void saveField("mobile", mobile);
-              } else {
-                mobileDirtyRef.current = false;
+          <div className="flex items-center gap-1">
+            <input
+              type="tel"
+              inputMode="tel"
+              className={cn(cellInputClass, "min-w-0 flex-1 font-medium tabular-nums")}
+              value={mobile}
+              disabled={!editable}
+              placeholder="Mobile number"
+              onFocus={() => {
+                editingFieldRef.current = "mobile";
+              }}
+              onChange={(e) => {
+                mobileDirtyRef.current = true;
+                setMobile(e.target.value);
+                scheduleMobileSave(e.target.value);
+              }}
+              onBlur={() => {
+                editingFieldRef.current = null;
+                if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
+                if (mobile.trim() && mobile !== displayMobile(inquiry)) {
+                  void saveField("mobile", mobile);
+                } else {
+                  mobileDirtyRef.current = false;
+                }
+              }}
+            />
+            <WhatsAppMessageButton
+              mobile={mobile}
+              customerName={
+                inquiry.customers?.name ||
+                inquiry.customer_name_snapshot ||
+                undefined
               }
-            }}
-          />
+              customerId={inquiry.customer_id}
+              inquiryId={inquiry.id}
+            />
+          </div>
           {inquiry.customer_id ? (
             <Link
               href={`/customers/${inquiry.customer_id}`}
