@@ -21,7 +21,8 @@ function authorizeCron(request: Request): boolean {
 }
 
 /**
- * Hourly cron: fan out today/overdue reminder notifications (idempotent via dedupe_key).
+ * Daily cron (Hobby-compatible): fan out today/overdue reminder notifications
+ * (idempotent via dedupe_key). Schedule in vercel.json: 30 0 * * * (06:00 IST).
  * Auth: Authorization: Bearer $CRON_SECRET (or ?secret= for manual runs).
  */
 export async function GET(request: Request) {

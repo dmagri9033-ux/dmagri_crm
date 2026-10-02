@@ -461,7 +461,7 @@ The following items are **ambiguous or business-specific**. Implementation must 
 
 **Dependencies:** Phase 10.
 
-**Completed:** Topbar notification bell with unread badge + dropdown; mark one / mark all read; hourly cron `GET /api/cron/reminders` (Bearer `CRON_SECRET` or `?secret=` for local); idempotent inserts via unique `dedupe_key` (`reminder:{id}:today|overdue:{IST-date}`); `vercel.json` cron; scoped to assignee `user_id` via RLS.
+**Completed:** Topbar notification bell with unread badge + dropdown; mark one / mark all read; daily cron `GET /api/cron/reminders` (Bearer `CRON_SECRET` or `?secret=` for local); idempotent inserts via unique `dedupe_key` (`reminder:{id}:today|overdue:{IST-date}`); `vercel.json` cron (`30 0 * * *` — Hobby-compatible, 06:00 IST); scoped to assignee `user_id` via RLS.
 
 **Expected files:**
 

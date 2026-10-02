@@ -80,13 +80,14 @@ Use **separate** Supabase projects for prod vs dev to prevent data leaks.
   "crons": [
     {
       "path": "/api/cron/reminders",
-      "schedule": "0 * * * *"
+      "schedule": "30 0 * * *"
     }
   ]
 }
 ```
 
-- Hourly run recommended for overdue/today notification fan-out (adjust after load testing).
+- **Hobby plan:** once per day max. Default `30 0 * * *` = **00:30 UTC** (**06:00 Asia/Kolkata**).
+- Pro+ can use hourly (`0 * * * *`) if you need tighter overdue fan-out.
 - Route Handler validates header `Authorization: Bearer ${CRON_SECRET}`.
 - Cron uses admin client or SECURITY DEFINER SQL; logs outcomes.
 
