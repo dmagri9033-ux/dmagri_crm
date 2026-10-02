@@ -167,10 +167,13 @@ export async function listReminders(
   rawFilters: Partial<ReminderFilterInput> = {},
 ): Promise<ReminderListResult> {
   const filters = reminderFilterSchema.parse(rawFilters);
-  const supabase = await createClient();
   const now = new Date();
   const dayStart = startOfTodayIst(now).toISOString();
   const dayEnd = endOfTodayIst(now).toISOString();
+  const [supabase, hideAdminCreated] = await Promise.all([
+    createClient(),
+    administratorCreatorOrFilter(),
+  ]);
 
   let query = supabase
     .from("reminders")
@@ -260,7 +263,6 @@ export async function listReminders(
       break;
   }
 
-  const hideAdminCreated = await administratorCreatorOrFilter();
   if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;

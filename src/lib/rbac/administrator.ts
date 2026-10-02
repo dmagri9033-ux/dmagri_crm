@@ -1,6 +1,7 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { getCurrentProfile } from "@/lib/auth/get-profile";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdministratorRoleName } from "@/lib/rbac/administrator-shared";
 
 export { isAdministratorRoleName } from "@/lib/rbac/administrator-shared";
@@ -11,30 +12,42 @@ export const currentUserIsAdministrator = cache(async (): Promise<boolean> => {
   return isAdministratorRoleName(profile?.roles?.name);
 });
 
-/** Profile ids whose current role is Administrator. Cached per request. */
+/**
+ * Cross-request cache (no cookies) — admin roster rarely changes.
+ * Avoids 2 extra Supabase round-trips on every list query on Vercel.
+ */
+const getCachedAdministratorProfileIds = unstable_cache(
+  async (): Promise<string[]> => {
+    const supabase = createAdminClient();
+
+    const { data: roles, error: roleError } = await supabase
+      .from("roles")
+      .select("id")
+      .ilike("name", "Administrator")
+      .is("deleted_at", null);
+
+    if (roleError) throw new Error(roleError.message);
+    if (!roles?.length) return [];
+
+    const { data: profiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .in(
+        "role_id",
+        roles.map((r) => r.id),
+      )
+      .is("deleted_at", null);
+
+    if (profileError) throw new Error(profileError.message);
+    return (profiles ?? []).map((p) => p.id);
+  },
+  ["administrator-profile-ids-v1"],
+  { revalidate: 300, tags: ["administrator-profile-ids"] },
+);
+
+/** Profile ids whose current role is Administrator. Cached per request + 5 min. */
 export const listAdministratorProfileIds = cache(async (): Promise<string[]> => {
-  const supabase = await createClient();
-
-  const { data: roles, error: roleError } = await supabase
-    .from("roles")
-    .select("id")
-    .ilike("name", "Administrator")
-    .is("deleted_at", null);
-
-  if (roleError) throw new Error(roleError.message);
-  if (!roles?.length) return [];
-
-  const { data: profiles, error: profileError } = await supabase
-    .from("profiles")
-    .select("id")
-    .in(
-      "role_id",
-      roles.map((r) => r.id),
-    )
-    .is("deleted_at", null);
-
-  if (profileError) throw new Error(profileError.message);
-  return (profiles ?? []).map((p) => p.id);
+  return getCachedAdministratorProfileIds();
 });
 
 /**

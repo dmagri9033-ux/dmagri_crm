@@ -7,6 +7,8 @@ export type Profile = Tables<"profiles">;
 
 export type ProfileWithRole = Profile & {
   roles: Pick<Tables<"roles">, "id" | "name" | "is_system"> | null;
+  /** Populated in the same profile query to avoid a second permissions round-trip. */
+  permissionCodes: string[];
 };
 
 /** Deduped per RSC request — layout + page authorize share one Auth call. */

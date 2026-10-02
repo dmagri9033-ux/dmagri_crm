@@ -56,7 +56,10 @@ export async function listInquiries(
   rawFilters: Partial<InquiryFilterInput> = {},
 ): Promise<InquiryListResult> {
   const filters = inquiryFilterSchema.parse(rawFilters);
-  const supabase = await createClient();
+  const [supabase, hideAdminCreated] = await Promise.all([
+    createClient(),
+    administratorCreatorOrFilter(),
+  ]);
 
   let query = supabase
     .from("inquiries")
@@ -96,7 +99,6 @@ export async function listInquiries(
     query = query.not("completed_at", "is", null);
   }
 
-  const hideAdminCreated = await administratorCreatorOrFilter();
   if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;

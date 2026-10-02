@@ -36,7 +36,10 @@ export async function listCustomers(
   rawFilters: Partial<CustomerFilterInput> = {},
 ): Promise<CustomerListResult> {
   const filters = customerFilterSchema.parse(rawFilters);
-  const supabase = await createClient();
+  const [supabase, hideAdminCreated] = await Promise.all([
+    createClient(),
+    administratorCreatorOrFilter(),
+  ]);
 
   let query = supabase
     .from("customers")
@@ -82,7 +85,6 @@ export async function listCustomers(
     query = query.eq("follow_up_required", false);
   }
 
-  const hideAdminCreated = await administratorCreatorOrFilter();
   if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;

@@ -51,7 +51,10 @@ export async function listActivityLogs(
   rawFilters: Partial<ActivityFilterInput> = {},
 ): Promise<ActivityListResult> {
   const filters = activityFilterSchema.parse(rawFilters);
-  const supabase = await createClient();
+  const [supabase, hideAdminCreated] = await Promise.all([
+    createClient(),
+    administratorCreatorOrFilter("actor_id"),
+  ]);
 
   let query = supabase
     .from("activity_logs")
@@ -87,7 +90,6 @@ export async function listActivityLogs(
     );
   }
 
-  const hideAdminCreated = await administratorCreatorOrFilter("actor_id");
   if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;

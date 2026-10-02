@@ -3,6 +3,31 @@ import { getAuthUser } from "@/lib/auth/session";
 import type { ProfileWithRole } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
+type RolePermRow = {
+  permissions: { code: string } | { code: string }[] | null;
+};
+
+type RoleWithPerms = {
+  id: string;
+  name: string;
+  is_system: boolean;
+  role_permissions?: RolePermRow[] | null;
+};
+
+function permissionCodesFromRole(role: RoleWithPerms | null): string[] {
+  if (!role?.role_permissions?.length) return [];
+  const codes: string[] = [];
+  for (const row of role.role_permissions) {
+    const permission = Array.isArray(row.permissions)
+      ? row.permissions[0]
+      : row.permissions;
+    if (permission && typeof permission.code === "string") {
+      codes.push(permission.code);
+    }
+  }
+  return codes;
+}
+
 export const getProfileByUserId = cache(
   async (userId: string): Promise<ProfileWithRole | null> => {
     const supabase = await createClient();
@@ -22,7 +47,10 @@ export const getProfileByUserId = cache(
       roles (
         id,
         name,
-        is_system
+        is_system,
+        role_permissions (
+          permissions ( code )
+        )
       )
     `,
       )
@@ -36,11 +64,24 @@ export const getProfileByUserId = cache(
 
     if (!data) return null;
 
-    const roles = Array.isArray(data.roles) ? data.roles[0] ?? null : data.roles;
+    const rolesRaw = Array.isArray(data.roles)
+      ? data.roles[0] ?? null
+      : data.roles;
+    const rolesWithPerms = rolesRaw as RoleWithPerms | null;
+    const permissionCodes = permissionCodesFromRole(rolesWithPerms);
+
+    const roles = rolesWithPerms
+      ? {
+          id: rolesWithPerms.id,
+          name: rolesWithPerms.name,
+          is_system: rolesWithPerms.is_system,
+        }
+      : null;
 
     return {
       ...data,
       roles,
+      permissionCodes,
     } as ProfileWithRole;
   },
 );

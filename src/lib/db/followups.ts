@@ -59,7 +59,10 @@ export async function listFollowups(
   rawFilters: Partial<FollowupFilterInput> = {},
 ): Promise<FollowupListResult> {
   const filters = followupFilterSchema.parse(rawFilters);
-  const supabase = await createClient();
+  const [supabase, hideAdminCreated] = await Promise.all([
+    createClient(),
+    administratorCreatorOrFilter(),
+  ]);
 
   let query = supabase
     .from("followups")
@@ -122,7 +125,6 @@ export async function listFollowups(
     query = query.is("inquiry_id", null);
   }
 
-  const hideAdminCreated = await administratorCreatorOrFilter();
   if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;
