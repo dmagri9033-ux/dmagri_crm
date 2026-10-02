@@ -31,7 +31,7 @@ export function CreateFollowupDialog({
   defaultCustomerId?: string;
   defaultInquiryId?: string;
   triggerLabel?: string;
-  triggerVariant?: "default" | "outline" | "secondary";
+  triggerVariant?: "default" | "outline" | "secondary" | "ghost";
   triggerSize?: "default" | "sm";
 }) {
   const [open, setOpen] = useState(false);

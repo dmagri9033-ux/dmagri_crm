@@ -36,7 +36,8 @@ export function EditInquiryDialog({
           <DialogHeader>
             <DialogTitle>Edit inquiry</DialogTitle>
             <DialogDescription>
-              Updating purchase status syncs purchased-product history.
+              Change the mobile number to re-link or auto-create a customer. Only
+              the number is required; other fields stay optional.
             </DialogDescription>
           </DialogHeader>
           <InquiryForm

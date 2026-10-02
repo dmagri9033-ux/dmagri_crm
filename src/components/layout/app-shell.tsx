@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { mainNavItems } from "@/lib/navigation";
-import type { Notification } from "@/lib/db/notifications";
 import {
   Sheet,
   SheetContent,
@@ -22,16 +21,10 @@ export type AppUserSummary = {
 type AppShellProps = {
   children: React.ReactNode;
   user: AppUserSummary;
-  notifications: Notification[];
-  unreadCount: number;
+  notifications: React.ReactNode;
 };
 
-export function AppShell({
-  children,
-  user,
-  notifications,
-  unreadCount,
-}: AppShellProps) {
+export function AppShell({ children, user, notifications }: AppShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -64,7 +57,6 @@ export function AppShell({
           title={title}
           user={user}
           notifications={notifications}
-          unreadCount={unreadCount}
           onMenuClick={() => setMobileOpen(true)}
         />
         <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>

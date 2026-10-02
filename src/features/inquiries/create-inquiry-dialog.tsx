@@ -35,7 +35,8 @@ export function CreateInquiryDialog({
           <DialogHeader>
             <DialogTitle>Create inquiry</DialogTitle>
             <DialogDescription>
-              Links a customer and product. Purchased inquiries sync to Customer 360°.
+              Enter a customer mobile number to create an inquiry. If the number is
+              new, a customer is added automatically. Other fields are optional.
             </DialogDescription>
           </DialogHeader>
           <InquiryForm

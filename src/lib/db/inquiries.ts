@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { administratorCreatorOrFilter } from "@/lib/rbac/administrator";
 import type { Tables } from "@/types/database.types";
 import {
   inquiryFilterSchema,
@@ -88,6 +89,15 @@ export async function listInquiries(
   } else if (filters.purchased === "no") {
     query = query.eq("product_purchased", false);
   }
+
+  if (filters.status === "open") {
+    query = query.is("completed_at", null);
+  } else if (filters.status === "completed") {
+    query = query.not("completed_at", "is", null);
+  }
+
+  const hideAdminCreated = await administratorCreatorOrFilter();
+  if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;
   const to = from + filters.pageSize - 1;
@@ -218,15 +228,18 @@ export async function createInquiryRecord(input: {
   userId: string;
   inquiry_date: string;
   customer_id: string;
-  product_id: string;
+  product_id?: string | null;
   customer_type?: string | null;
   product_purchased: boolean;
   remarks?: string | null;
 }) {
   const supabase = await createClient();
+  const productId = input.product_id || null;
 
   const [{ data: product }, { data: customer }] = await Promise.all([
-    supabase.from("products").select("name").eq("id", input.product_id).maybeSingle(),
+    productId
+      ? supabase.from("products").select("name").eq("id", productId).maybeSingle()
+      : Promise.resolve({ data: null }),
     supabase
       .from("customers")
       .select("name, mobile, customer_type")
@@ -239,14 +252,16 @@ export async function createInquiryRecord(input: {
     throw new Error("Customer not found");
   }
 
+  const purchased = Boolean(input.product_purchased && productId);
+
   const { data, error } = await supabase
     .from("inquiries")
     .insert({
       inquiry_date: input.inquiry_date,
       customer_id: input.customer_id,
-      product_id: input.product_id,
+      product_id: productId,
       customer_type: input.customer_type || customer.customer_type || null,
-      product_purchased: input.product_purchased,
+      product_purchased: purchased,
       remarks: input.remarks?.trim() || null,
       created_by: input.userId,
       assigned_user_id: input.userId,
@@ -259,11 +274,11 @@ export async function createInquiryRecord(input: {
 
   if (error) throw new Error(error.message);
 
-  if (input.product_purchased) {
+  if (purchased && productId) {
     await syncInquiryPurchase({
       inquiryId: data.id,
       customerId: input.customer_id,
-      productId: input.product_id,
+      productId,
       purchased: true,
       purchasedAt: input.inquiry_date,
     });

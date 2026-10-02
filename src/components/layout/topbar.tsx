@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Menu, Search, UserRound } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import type { AppUserSummary } from "@/components/layout/app-shell";
-import { NotificationBell } from "@/components/layout/notification-bell";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,13 +14,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Notification } from "@/lib/db/notifications";
 
 type TopbarProps = {
   title?: string;
   user: AppUserSummary;
-  notifications: Notification[];
-  unreadCount: number;
+  notifications: React.ReactNode;
   onMenuClick?: () => void;
 };
 
@@ -29,7 +26,6 @@ export function Topbar({
   title = "Dashboard",
   user,
   notifications,
-  unreadCount,
   onMenuClick,
 }: TopbarProps) {
   return (
@@ -58,7 +54,7 @@ export function Topbar({
         </div>
       </div>
 
-      <NotificationBell notifications={notifications} unreadCount={unreadCount} />
+      {notifications}
 
       <DropdownMenu>
         <DropdownMenuTrigger

@@ -9,6 +9,7 @@ export function FollowupsPagination({
   dateFrom,
   dateTo,
   customerId,
+  customerType,
   linked,
 }: {
   page: number;
@@ -18,6 +19,7 @@ export function FollowupsPagination({
   dateFrom: string;
   dateTo: string;
   customerId: string;
+  customerType: string;
   linked: string;
 }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -28,6 +30,9 @@ export function FollowupsPagination({
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (customerId) params.set("customerId", customerId);
+    if (customerType && customerType !== "all") {
+      params.set("customerType", customerType);
+    }
     if (linked && linked !== "all") params.set("linked", linked);
     if (nextPage > 1) params.set("page", String(nextPage));
     const qs = params.toString();

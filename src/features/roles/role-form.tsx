@@ -52,6 +52,10 @@ export function RoleForm({
   );
 
   useEffect(() => {
+    setPermissionCodes(initialPermissionCodes);
+  }, [initialPermissionCodes]);
+
+  useEffect(() => {
     if (state.success) {
       onSuccess?.();
       if (mode === "create" && state.roleId) {
@@ -62,8 +66,10 @@ export function RoleForm({
     }
   }, [state.success, state.roleId, mode, onSuccess, router]);
 
+  const formKey = `${roleId ?? "new"}|${initialName}|${initialDescription ?? ""}|${initialPermissionCodes.join(",")}`;
+
   return (
-    <form action={formAction} className="space-y-6">
+    <form key={formKey} action={formAction} className="space-y-6">
       {roleId ? <input type="hidden" name="roleId" value={roleId} /> : null}
 
       {state.error ? (

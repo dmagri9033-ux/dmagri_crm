@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import {
   markAllNotificationsRead,
   markNotificationRead,
@@ -20,7 +19,6 @@ export async function markNotificationReadAction(
     const notificationId = String(formData.get("notificationId") || "");
     if (!notificationId) return { error: "Missing notification" };
     await markNotificationRead(notificationId);
-    revalidatePath("/", "layout");
     return { success: "Marked read." };
   } catch (error) {
     return toActionError(error);
@@ -34,7 +32,6 @@ export async function markAllNotificationsReadAction(
   void formData;
   try {
     await markAllNotificationsRead();
-    revalidatePath("/", "layout");
     return { success: "All notifications marked read." };
   } catch (error) {
     return toActionError(error);

@@ -5,6 +5,7 @@ import {
   startOfTodayIst,
   type ReminderUiStatus,
 } from "@/lib/datetime/ist";
+import { administratorCreatorOrFilter } from "@/lib/rbac/administrator";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database.types";
 import {
@@ -13,14 +14,19 @@ import {
 } from "@/validations/reminder";
 
 export type ProfileLite = Pick<Tables<"profiles">, "id" | "display_name" | "email">;
+export type ProductLite = Pick<Tables<"products">, "id" | "name" | "is_active">;
 export type CustomerLite = Pick<
   Tables<"customers">,
-  "id" | "name" | "mobile" | "mobile_normalized" | "customer_type"
->;
+  "id" | "name" | "mobile" | "mobile_normalized" | "customer_type" | "primary_product_id"
+> & {
+  products: ProductLite | null;
+};
 export type InquiryLite = Pick<
   Tables<"inquiries">,
-  "id" | "inquiry_date" | "product_name_snapshot" | "customer_id"
->;
+  "id" | "inquiry_date" | "product_name_snapshot" | "customer_id" | "product_id"
+> & {
+  products: ProductLite | null;
+};
 
 export type ReminderWithRelations = Tables<"reminders"> & {
   customers: CustomerLite | null;
@@ -29,6 +35,8 @@ export type ReminderWithRelations = Tables<"reminders"> & {
   created_by_profile: ProfileLite | null;
   ui_status: ReminderUiStatus;
   actively_snoozed: boolean;
+  /** Inquiry product if linked, otherwise customer primary product. */
+  product_name: string | null;
 };
 
 export type ReminderListResult = {
@@ -43,19 +51,80 @@ function one<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
+function mapCustomer(
+  value:
+    | (Omit<CustomerLite, "products"> & {
+        products: ProductLite | ProductLite[] | null;
+      })
+    | (Omit<CustomerLite, "products"> & {
+        products: ProductLite | ProductLite[] | null;
+      })[]
+    | null
+    | undefined,
+): CustomerLite | null {
+  const row = one(value);
+  if (!row) return null;
+  return { ...row, products: one(row.products) };
+}
+
+function mapInquiry(
+  value:
+    | (Omit<InquiryLite, "products"> & {
+        products: ProductLite | ProductLite[] | null;
+      })
+    | (Omit<InquiryLite, "products"> & {
+        products: ProductLite | ProductLite[] | null;
+      })[]
+    | null
+    | undefined,
+): InquiryLite | null {
+  const row = one(value);
+  if (!row) return null;
+  return { ...row, products: one(row.products) };
+}
+
+function resolveProductName(
+  customer: CustomerLite | null,
+  inquiry: InquiryLite | null,
+): string | null {
+  const fromInquiry =
+    inquiry?.product_name_snapshot?.trim() ||
+    inquiry?.products?.name?.trim() ||
+    null;
+  if (fromInquiry) return fromInquiry;
+  return customer?.products?.name?.trim() || null;
+}
+
 function mapReminder(row: never, now = new Date()): ReminderWithRelations {
   const r = row as Tables<"reminders"> & {
-    customers: CustomerLite | CustomerLite[] | null;
-    inquiries: InquiryLite | InquiryLite[] | null;
+    customers:
+      | (Omit<CustomerLite, "products"> & {
+          products: ProductLite | ProductLite[] | null;
+        })
+      | (Omit<CustomerLite, "products"> & {
+          products: ProductLite | ProductLite[] | null;
+        })[]
+      | null;
+    inquiries:
+      | (Omit<InquiryLite, "products"> & {
+          products: ProductLite | ProductLite[] | null;
+        })
+      | (Omit<InquiryLite, "products"> & {
+          products: ProductLite | ProductLite[] | null;
+        })[]
+      | null;
     assigned_profile: ProfileLite | ProfileLite[] | null;
     created_by_profile: ProfileLite | ProfileLite[] | null;
   };
+  const customers = mapCustomer(r.customers);
+  const inquiries = mapInquiry(r.inquiries);
   return {
     ...r,
-    customers: one(r.customers),
-    inquiries: one(r.inquiries),
+    customers,
+    inquiries,
     assigned_profile: one(r.assigned_profile),
     created_by_profile: one(r.created_by_profile),
+    product_name: resolveProductName(customers, inquiries),
     ui_status: getReminderUiStatus(
       r.remind_at,
       r.completed_at,
@@ -69,8 +138,14 @@ function mapReminder(row: never, now = new Date()): ReminderWithRelations {
 
 const REMINDER_SELECT = `
   *,
-  customers:customer_id ( id, name, mobile, mobile_normalized, customer_type ),
-  inquiries:inquiry_id ( id, inquiry_date, product_name_snapshot, customer_id ),
+  customers:customer_id (
+    id, name, mobile, mobile_normalized, customer_type, primary_product_id,
+    products:primary_product_id ( id, name, is_active )
+  ),
+  inquiries:inquiry_id (
+    id, inquiry_date, product_name_snapshot, customer_id, product_id,
+    products:product_id ( id, name, is_active )
+  ),
   assigned_profile:assigned_user_id ( id, display_name, email ),
   created_by_profile:created_by ( id, display_name, email )
 `;
@@ -126,6 +201,25 @@ export async function listReminders(
   if (filters.customerId) {
     query = query.eq("customer_id", filters.customerId);
   }
+  if (filters.customerType && filters.customerType !== "all") {
+    const { data: typedCustomers, error: typeError } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("customer_type", filters.customerType)
+      .is("deleted_at", null)
+      .limit(500);
+    if (typeError) throw new Error(typeError.message);
+    const typeIds = (typedCustomers ?? []).map((c) => c.id);
+    if (typeIds.length === 0) {
+      return {
+        reminders: [],
+        total: 0,
+        page: filters.page,
+        pageSize: filters.pageSize,
+      };
+    }
+    query = query.in("customer_id", typeIds);
+  }
   if (filters.dateFrom) {
     query = query.gte("remind_at", `${filters.dateFrom}T00:00:00+05:30`);
   }
@@ -165,6 +259,9 @@ export async function listReminders(
     default:
       break;
   }
+
+  const hideAdminCreated = await administratorCreatorOrFilter();
+  if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;
   const to = from + filters.pageSize - 1;

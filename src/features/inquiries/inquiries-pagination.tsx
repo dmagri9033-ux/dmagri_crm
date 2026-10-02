@@ -11,6 +11,7 @@ export function InquiriesPagination({
   customerType,
   productId,
   purchased,
+  status,
 }: {
   page: number;
   pageSize: number;
@@ -21,6 +22,7 @@ export function InquiriesPagination({
   customerType: string;
   productId: string;
   purchased: string;
+  status: string;
 }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -32,6 +34,7 @@ export function InquiriesPagination({
     if (customerType && customerType !== "all") params.set("customerType", customerType);
     if (productId) params.set("productId", productId);
     if (purchased && purchased !== "all") params.set("purchased", purchased);
+    if (status && status !== "open") params.set("status", status);
     if (nextPage > 1) params.set("page", String(nextPage));
     const qs = params.toString();
     return qs ? `/inquiries?${qs}` : "/inquiries";

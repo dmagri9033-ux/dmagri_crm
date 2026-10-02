@@ -8,6 +8,8 @@ import { listRolesForUserPicker, listUsers } from "@/lib/db/users";
 import { requirePagePermission } from "@/lib/rbac/require-page-permission";
 import { userFilterSchema } from "@/validations/user";
 
+export const dynamic = "force-dynamic";
+
 export default async function UsersPage({
   searchParams,
 }: {
@@ -31,27 +33,20 @@ export default async function UsersPage({
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
-          <p className="text-sm text-muted-foreground">
-            Provision CRM accounts, assign roles, and activate or deactivate
-            access. Passwords are never stored on the profile.
-          </p>
-        </div>
-        <CreateUserDialog roles={roles} />
-      </div>
-
       <Suspense fallback={null}>
         <UserFilters
           search={filters.search}
           status={filters.status}
           roleId={filters.role_id}
           roles={roles}
+          heading={
+            <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
+          }
+          actions={<CreateUserDialog roles={roles} />}
         />
       </Suspense>
 
-      <UsersTable users={result.users} roles={roles} />
+      <UsersTable users={result.users} filters={filters} roles={roles} />
 
       <UsersPagination
         page={result.page}

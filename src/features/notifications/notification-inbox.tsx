@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   markAllNotificationsReadAction,
@@ -37,34 +36,75 @@ function kindLabel(kind: string) {
 }
 
 export function NotificationInbox({
-  notifications,
-  unreadCount,
+  notifications: initialNotifications,
+  unreadCount: initialUnread,
+  onUnreadChange,
 }: {
   notifications: Notification[];
   unreadCount: number;
+  onUnreadChange?: (count: number) => void;
 }) {
-  const router = useRouter();
-  const [markOneState, markOneAction] = useActionState<
-    NotificationActionState,
-    FormData
-  >(markNotificationReadAction, {});
-  const [markAllState, markAllAction] = useActionState<
-    NotificationActionState,
-    FormData
-  >(markAllNotificationsReadAction, {});
+  const [notifications, setNotifications] = useState(initialNotifications);
+  const [unreadCount, setUnreadCount] = useState(initialUnread);
 
   useEffect(() => {
-    if (markOneState.success || markAllState.success) {
-      router.refresh();
+    setNotifications(initialNotifications);
+    setUnreadCount(initialUnread);
+  }, [initialNotifications, initialUnread]);
+
+  function setUnread(next: number) {
+    setUnreadCount(next);
+    onUnreadChange?.(next);
+  }
+
+  async function markOne(formData: FormData) {
+    const notificationId = String(formData.get("notificationId") || "");
+    const prev = notifications;
+    const prevUnread = unreadCount;
+
+    setNotifications((list) =>
+      list.map((n) =>
+        n.id === notificationId && !n.read_at
+          ? { ...n, read_at: new Date().toISOString() }
+          : n,
+      ),
+    );
+    if (prev.some((n) => n.id === notificationId && !n.read_at)) {
+      setUnread(Math.max(0, prevUnread - 1));
     }
-  }, [markOneState.success, markAllState.success, router]);
+
+    const result: NotificationActionState =
+      await markNotificationReadAction({}, formData);
+    if (result.error) {
+      setNotifications(prev);
+      setUnread(prevUnread);
+    }
+  }
+
+  async function markAll(formData: FormData) {
+    const prev = notifications;
+    const prevUnread = unreadCount;
+    const now = new Date().toISOString();
+
+    setNotifications((list) =>
+      list.map((n) => (n.read_at ? n : { ...n, read_at: now })),
+    );
+    setUnread(0);
+
+    const result: NotificationActionState =
+      await markAllNotificationsReadAction({}, formData);
+    if (result.error) {
+      setNotifications(prev);
+      setUnread(prevUnread);
+    }
+  }
 
   return (
     <div className="flex w-full flex-col">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
         <p className="text-xs font-medium text-muted-foreground">Notifications</p>
         {unreadCount > 0 ? (
-          <form action={markAllAction}>
+          <form action={markAll}>
             <MarkAllButton />
           </form>
         ) : null}
@@ -81,7 +121,7 @@ export function NotificationInbox({
               const unread = !notification.read_at;
               return (
                 <li key={notification.id}>
-                  <form action={markOneAction}>
+                  <form action={markOne}>
                     <input
                       type="hidden"
                       name="notificationId"

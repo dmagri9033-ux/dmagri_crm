@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { administratorCreatorOrFilter } from "@/lib/rbac/administrator";
 import type { Tables } from "@/types/database.types";
 import {
   activityFilterSchema,
@@ -85,6 +86,9 @@ export async function listActivityLogs(
       `action.ilike.%${q}%,module.ilike.%${q}%,entity_type.ilike.%${q}%`,
     );
   }
+
+  const hideAdminCreated = await administratorCreatorOrFilter("actor_id");
+  if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;
   const to = from + filters.pageSize - 1;

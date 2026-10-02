@@ -13,10 +13,6 @@ export default async function ProfilePage() {
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
       <div className="space-y-1">
         <h2 className="text-2xl font-semibold tracking-tight">Your profile</h2>
-        <p className="text-sm text-muted-foreground">
-          Account details from CRM. Passwords are managed by Supabase Auth and
-          are never stored in the profiles table.
-        </p>
       </div>
 
       <Separator />

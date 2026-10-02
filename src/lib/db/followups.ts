@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { administratorCreatorOrFilter } from "@/lib/rbac/administrator";
 import type { Tables } from "@/types/database.types";
 import {
   followupFilterSchema,
@@ -95,11 +96,34 @@ export async function listFollowups(
     query = query.eq("customer_id", filters.customerId);
   }
 
+  if (filters.customerType && filters.customerType !== "all") {
+    const { data: typedCustomers, error: typeError } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("customer_type", filters.customerType)
+      .is("deleted_at", null)
+      .limit(500);
+    if (typeError) throw new Error(typeError.message);
+    const typeIds = (typedCustomers ?? []).map((c) => c.id);
+    if (typeIds.length === 0) {
+      return {
+        followups: [],
+        total: 0,
+        page: filters.page,
+        pageSize: filters.pageSize,
+      };
+    }
+    query = query.in("customer_id", typeIds);
+  }
+
   if (filters.linked === "yes") {
     query = query.not("inquiry_id", "is", null);
   } else if (filters.linked === "no") {
     query = query.is("inquiry_id", null);
   }
+
+  const hideAdminCreated = await administratorCreatorOrFilter();
+  if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;
   const to = from + filters.pageSize - 1;

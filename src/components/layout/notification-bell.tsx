@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { NotificationInbox } from "@/features/notifications/notification-inbox";
@@ -15,11 +16,17 @@ import type { Notification } from "@/lib/db/notifications";
 
 export function NotificationBell({
   notifications,
-  unreadCount,
+  unreadCount: initialUnread,
 }: {
   notifications: Notification[];
   unreadCount: number;
 }) {
+  const [unreadCount, setUnreadCount] = useState(initialUnread);
+
+  useEffect(() => {
+    setUnreadCount(initialUnread);
+  }, [initialUnread]);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -46,7 +53,8 @@ export function NotificationBell({
       <DropdownMenuContent align="end" className="w-[22rem] p-0">
         <NotificationInbox
           notifications={notifications}
-          unreadCount={unreadCount}
+          unreadCount={initialUnread}
+          onUnreadChange={setUnreadCount}
         />
         <DropdownMenuSeparator className="my-0" />
         <div className="px-3 py-2">

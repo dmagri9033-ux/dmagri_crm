@@ -8,9 +8,16 @@ import { normalizeMobile } from "@/lib/customers/normalize-mobile";
 import {
   findCustomerByNormalizedMobile,
   getCustomerById,
+  listCustomers,
+  type CustomerWithProduct,
 } from "@/lib/db/customers";
 import { createClient } from "@/lib/supabase/server";
-import { customerFormSchema } from "@/validations/customer";
+import {
+  CUSTOMER_TYPES,
+  customerFilterSchema,
+  customerFormSchema,
+  type CustomerFilterInput,
+} from "@/validations/customer";
 
 export type CustomerActionState = {
   error?: string;
@@ -21,6 +28,15 @@ export type CustomerActionState = {
     name: string;
     mobile: string;
   };
+};
+
+export type CustomerGridResult = {
+  error?: string;
+  success?: string;
+  customerId?: string;
+  customer?: CustomerWithProduct;
+  customers?: CustomerWithProduct[];
+  total?: number;
 };
 
 function parseCustomerForm(formData: FormData) {
@@ -235,6 +251,229 @@ export async function updateCustomerAction(
       customerId,
     });
     return { success: "Customer updated.", customerId };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+export async function loadCustomersGridAction(
+  rawFilters: Partial<CustomerFilterInput> = {},
+): Promise<CustomerGridResult> {
+  try {
+    await authorize("customer.view");
+    const filters = customerFilterSchema.parse(rawFilters);
+    const result = await listCustomers(filters);
+    return {
+      customers: result.customers,
+      total: result.total,
+    };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+export async function patchCustomerFieldAction(input: {
+  customerId: string;
+  field:
+    | "name"
+    | "mobile"
+    | "customer_type"
+    | "primary_product_id"
+    | "product_purchased"
+    | "follow_up_required"
+    | "notes";
+  value: string;
+}): Promise<CustomerGridResult> {
+  try {
+    const ctx = await authorize("customer.update");
+    const existing = await getCustomerById(input.customerId);
+    if (!existing) return { error: "Customer not found" };
+
+    const supabase = await createClient();
+    const patch: {
+      name?: string;
+      mobile?: string;
+      mobile_normalized?: string;
+      customer_type?: string | null;
+      primary_product_id?: string | null;
+      product_purchased?: boolean;
+      follow_up_required?: boolean;
+      notes?: string | null;
+    } = {};
+
+    if (input.field === "name") {
+      const name = input.value.trim();
+      if (name.length < 2) return { error: "Name must be at least 2 characters" };
+      patch.name = name;
+    } else if (input.field === "mobile") {
+      const mobileNormalized = normalizeMobile(input.value);
+      if (!mobileNormalized) {
+        return { error: "Enter a valid mobile number" };
+      }
+      const duplicate = await findCustomerByNormalizedMobile(
+        mobileNormalized,
+        input.customerId,
+      );
+      if (duplicate) {
+        return { error: "Another customer already uses this mobile number." };
+      }
+      patch.mobile = input.value.trim();
+      patch.mobile_normalized = mobileNormalized;
+    } else if (input.field === "customer_type") {
+      const typeRaw = input.value.trim();
+      if (typeRaw === "") {
+        patch.customer_type = null;
+      } else if (
+        !CUSTOMER_TYPES.includes(typeRaw as (typeof CUSTOMER_TYPES)[number])
+      ) {
+        return { error: "Invalid customer type" };
+      } else {
+        patch.customer_type = typeRaw;
+      }
+    } else if (input.field === "primary_product_id") {
+      const productId = input.value.trim() || null;
+      patch.primary_product_id = productId;
+      if (!productId && existing.product_purchased) {
+        patch.product_purchased = false;
+      }
+    } else if (input.field === "product_purchased") {
+      const purchased = input.value === "true" || input.value === "yes";
+      if (purchased && !existing.primary_product_id) {
+        return { error: "Select a product before marking purchased." };
+      }
+      patch.product_purchased = purchased;
+    } else if (input.field === "follow_up_required") {
+      patch.follow_up_required =
+        input.value === "true" || input.value === "yes";
+    } else if (input.field === "notes") {
+      patch.notes = input.value.trim() ? input.value.trim() : null;
+    } else {
+      return { error: "Unknown field" };
+    }
+
+    const { error } = await supabase
+      .from("customers")
+      .update(patch)
+      .eq("id", input.customerId)
+      .is("deleted_at", null);
+
+    if (error) {
+      if (error.code === "23505") {
+        return { error: "Another customer already uses this mobile number." };
+      }
+      throw new Error(error.message);
+    }
+
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${input.customerId}`);
+    await logActivity({
+      actorId: ctx.userId,
+      action: "CUSTOMER_UPDATED",
+      module: "customers",
+      entityType: "customer",
+      entityId: input.customerId,
+      customerId: input.customerId,
+      metadata: { field: input.field, via: "grid" },
+    });
+
+    const customer = await getCustomerById(input.customerId);
+    return {
+      success: "Saved",
+      customerId: input.customerId,
+      customer: customer ?? undefined,
+    };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+export async function createCustomerGridRowAction(input: {
+  name?: string;
+  mobile: string;
+  customer_type?: string;
+  primary_product_id?: string;
+  product_purchased?: boolean;
+  follow_up_required?: boolean;
+}): Promise<CustomerGridResult> {
+  try {
+    const ctx = await authorize("customer.create");
+    const mobile = input.mobile.trim();
+    const mobileNormalized = normalizeMobile(mobile);
+    if (!mobile || !mobileNormalized) {
+      return { error: "Enter a valid mobile number" };
+    }
+
+    const duplicate = await findCustomerByNormalizedMobile(mobileNormalized);
+    if (duplicate) {
+      return {
+        error: "A customer with this mobile number already exists.",
+      };
+    }
+
+    const nameRaw = (input.name ?? "").trim();
+    const name =
+      nameRaw.length >= 2
+        ? nameRaw
+        : `Customer ${mobile.replace(/\D/g, "").slice(-10)}`;
+
+    const typeRaw = (input.customer_type || "").trim();
+    let customerType: string | null = null;
+    if (typeRaw) {
+      if (
+        !CUSTOMER_TYPES.includes(typeRaw as (typeof CUSTOMER_TYPES)[number])
+      ) {
+        return { error: "Invalid customer type" };
+      }
+      customerType = typeRaw;
+    }
+
+    const productId = input.primary_product_id?.trim() || null;
+    const purchased = Boolean(input.product_purchased && productId);
+    const followUp = Boolean(input.follow_up_required);
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("customers")
+      .insert({
+        name,
+        mobile,
+        mobile_normalized: mobileNormalized,
+        customer_type: customerType,
+        primary_product_id: productId,
+        product_purchased: purchased,
+        follow_up_required: followUp,
+        created_by: ctx.userId,
+        assigned_user_id: ctx.userId,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      if (error.code === "23505") {
+        return {
+          error: "A customer with this mobile number already exists.",
+        };
+      }
+      throw new Error(error.message);
+    }
+
+    revalidatePath("/customers");
+    await logActivity({
+      actorId: ctx.userId,
+      action: "CUSTOMER_CREATED",
+      module: "customers",
+      entityType: "customer",
+      entityId: data.id,
+      customerId: data.id,
+      metadata: { via: "grid", mobile: mobileNormalized },
+    });
+
+    const customer = await getCustomerById(data.id);
+    return {
+      success: "Row added.",
+      customerId: data.id,
+      customer: customer ?? undefined,
+    };
   } catch (error) {
     return toActionError(error);
   }

@@ -1,70 +1,273 @@
-import { Badge } from "@/components/ui/badge";
-import { EditUserDialog } from "@/features/users/edit-user-dialog";
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, RefreshCw } from "lucide-react";
+import {
+  loadUsersGridAction,
+  patchUserFieldAction,
+} from "@/actions/users";
+import {
+  formatGridDate,
+  GridSaveIndicator,
+  gridCellInputClass,
+  gridCellSelectClass,
+  type GridSaveState,
+} from "@/components/shared/data-grid";
+import { usePermissions } from "@/components/providers/permissions-provider";
+import { Button } from "@/components/ui/button";
 import { UserRowActions } from "@/features/users/user-row-actions";
+import { isAdministratorRoleName } from "@/lib/rbac/administrator-shared";
 import type { UserRoleLite, UserRow } from "@/lib/db/users";
+import type { UserFilterInput } from "@/validations/user";
+import { cn } from "@/lib/utils";
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-IN", {
-    dateStyle: "medium",
-    timeZone: "Asia/Kolkata",
-  }).format(new Date(value));
-}
-
-export function UsersTable({
-  users,
+function UserGridRow({
+  user,
   roles,
+  canUpdate,
+  onUpdated,
+  onDeleted,
 }: {
-  users: UserRow[];
+  user: UserRow;
   roles: UserRoleLite[];
+  canUpdate: boolean;
+  onUpdated: (user: UserRow) => void;
+  onDeleted: (id: string) => void;
 }) {
-  if (users.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-        No users match your filters. Create a user to get started.
-      </div>
-    );
+  const isAdmin = isAdministratorRoleName(user.role?.name);
+  const editable = canUpdate && !isAdmin;
+  const [displayName, setDisplayName] = useState(user.display_name);
+  const [roleId, setRoleId] = useState(user.role_id);
+  const [active, setActive] = useState(user.is_active);
+  const [saveState, setSaveState] = useState<GridSaveState>("idle");
+  const [error, setError] = useState<string>();
+  const editingNameRef = useRef(false);
+  const dirtyRef = useRef(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!editingNameRef.current && !dirtyRef.current) {
+      setDisplayName(user.display_name);
+    }
+    setRoleId(user.role_id);
+    setActive(user.is_active);
+  }, [user]);
+
+  async function save(
+    field: "display_name" | "role_id" | "is_active",
+    value: string,
+  ) {
+    if (!editable) return;
+    setSaveState("saving");
+    setError(undefined);
+    const result = await patchUserFieldAction({
+      userId: user.id,
+      field,
+      value,
+    });
+    if (result.error) {
+      setSaveState("error");
+      setError(result.error);
+      setDisplayName(user.display_name);
+      setRoleId(user.role_id);
+      setActive(user.is_active);
+      dirtyRef.current = false;
+      return;
+    }
+    dirtyRef.current = false;
+    if (result.user) onUpdated(result.user);
+    setSaveState("saved");
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setSaveState("idle"), 1200);
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border">
-      <table className="w-full min-w-[820px] text-sm">
-        <thead className="bg-muted/50 text-left">
-          <tr>
-            <th className="px-4 py-3 font-medium">User</th>
-            <th className="px-4 py-3 font-medium">Role</th>
-            <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium">Created</th>
-            <th className="px-4 py-3 font-medium text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user) => (
-            <tr key={user.id} className="border-t align-top">
-              <td className="px-4 py-3">
-                <div className="font-medium">{user.display_name}</div>
-                <div className="text-xs text-muted-foreground">{user.email}</div>
-              </td>
-              <td className="px-4 py-3">
-                {user.role?.name ?? "—"}
-              </td>
-              <td className="px-4 py-3">
-                <Badge variant={user.is_active ? "secondary" : "outline"}>
-                  {user.is_active ? "Active" : "Inactive"}
-                </Badge>
-              </td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {formatDate(user.created_at)}
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex flex-col items-end gap-2">
-                  <EditUserDialog user={user} roles={roles} />
-                  <UserRowActions user={user} />
-                </div>
-              </td>
-            </tr>
+    <tr className="border-t odd:bg-muted/20">
+      <td className="p-1.5">
+        <input
+          className={cn(gridCellInputClass, "min-w-[10rem] font-medium")}
+          value={displayName}
+          disabled={!editable}
+          title={isAdmin ? "Administrator accounts are read-only" : undefined}
+          onFocus={() => {
+            editingNameRef.current = true;
+          }}
+          onChange={(e) => {
+            dirtyRef.current = true;
+            setDisplayName(e.target.value);
+          }}
+          onBlur={() => {
+            editingNameRef.current = false;
+            if (displayName.trim() !== user.display_name) {
+              void save("display_name", displayName);
+            } else dirtyRef.current = false;
+          }}
+        />
+      </td>
+      <td className="p-1.5 text-sm text-muted-foreground">{user.email}</td>
+      <td className="p-1.5">
+        <select
+          className={cn(gridCellSelectClass, "min-w-[8rem]")}
+          value={roleId}
+          disabled={!editable}
+          title={isAdmin ? "Administrator accounts are read-only" : undefined}
+          onChange={(e) => {
+            const next = e.target.value;
+            setRoleId(next);
+            void save("role_id", next);
+          }}
+        >
+          {roles.map((role) => (
+            <option key={role.id} value={role.id}>
+              {role.name}
+            </option>
           ))}
-        </tbody>
-      </table>
+        </select>
+      </td>
+      <td className="p-1.5">
+        <select
+          className={cn(
+            gridCellSelectClass,
+            active ? "bg-emerald-500/10" : "bg-muted/40",
+          )}
+          value={active ? "true" : "false"}
+          disabled={!editable}
+          title={isAdmin ? "Administrator accounts are read-only" : undefined}
+          onChange={(e) => {
+            const next = e.target.value === "true";
+            setActive(next);
+            void save("is_active", next ? "true" : "false");
+          }}
+        >
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </td>
+      <td className="p-1.5 text-xs text-muted-foreground whitespace-nowrap">
+        {formatGridDate(user.created_at)}
+      </td>
+      <td className="p-1.5">
+        <div className="flex flex-col items-end gap-1">
+          <GridSaveIndicator state={saveState} error={error} />
+          <UserRowActions
+            user={user}
+            onDeleted={onDeleted}
+            readOnly={isAdmin}
+          />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+export function UsersTable({
+  users: initialUsers,
+  filters,
+  roles,
+}: {
+  users: UserRow[];
+  filters: Partial<UserFilterInput>;
+  roles: UserRoleLite[];
+}) {
+  const { can } = usePermissions();
+  const canUpdate = can("user.update");
+  const [rows, setRows] = useState(initialUsers);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string>();
+  const filterKey = JSON.stringify(filters);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setLoadError(undefined);
+    const result = await loadUsersGridAction(filters);
+    if (result.error) {
+      setLoadError(result.error);
+      setLoading(false);
+      return;
+    }
+    setRows(result.users ?? []);
+    setLoading(false);
+  }, [filters]);
+
+  useEffect(() => {
+    void reload();
+  }, [filterKey, reload]);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={loading}
+          onClick={() => void reload()}
+        >
+          {loading ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="size-3.5" />
+          )}
+          Refresh
+        </Button>
+      </div>
+      {loadError ? (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {loadError}
+        </p>
+      ) : null}
+      <div className="overflow-x-auto rounded-xl border">
+        <table className="w-full min-w-[920px] border-collapse text-sm">
+          <thead>
+            <tr className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <th className="px-2.5 py-2.5 font-semibold">Display name</th>
+              <th className="px-2.5 py-2.5 font-semibold">Email</th>
+              <th className="px-2.5 py-2.5 font-semibold">Role</th>
+              <th className="px-2.5 py-2.5 font-semibold">Status</th>
+              <th className="px-2.5 py-2.5 font-semibold">Created</th>
+              <th className="px-2.5 py-2.5 text-right font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                >
+                  Loading users…
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                >
+                  No users match your filters. Create a user to get started.
+                </td>
+              </tr>
+            ) : (
+              rows.map((user) => (
+                <UserGridRow
+                  key={user.id}
+                  user={user}
+                  roles={roles}
+                  canUpdate={canUpdate}
+                  onUpdated={(next) =>
+                    setRows((prev) =>
+                      prev.map((r) => (r.id === next.id ? next : r)),
+                    )
+                  }
+                  onDeleted={(id) => {
+                    setRows((prev) => prev.filter((r) => r.id !== id));
+                  }}
+                />
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

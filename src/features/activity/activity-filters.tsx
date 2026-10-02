@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
+import { CollapsibleFilters } from "@/components/shared/collapsible-filters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,8 @@ export function ActivityFilters({
   dateTo,
   actors,
   actions,
+  heading,
+  toolbarActions,
 }: {
   search: string;
   module: string;
@@ -27,11 +30,21 @@ export function ActivityFilters({
   dateTo: string;
   actors: ProfileLite[];
   actions: string[];
+  heading?: React.ReactNode;
+  toolbarActions?: React.ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+
+  const activeCount =
+    (search.trim() ? 1 : 0) +
+    (module && module !== "all" ? 1 : 0) +
+    (action ? 1 : 0) +
+    (actorId ? 1 : 0) +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0);
 
   function pushParams(next: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -51,98 +64,105 @@ export function ActivityFilters({
   ].sort();
 
   return (
-    <form
-      className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-2 lg:grid-cols-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const form = new FormData(event.currentTarget);
-        pushParams({
-          search: String(form.get("search") || ""),
-          module: String(form.get("module") || "all"),
-          action: String(form.get("action") || ""),
-          actorId: String(form.get("actorId") || ""),
-          dateFrom: String(form.get("dateFrom") || ""),
-          dateTo: String(form.get("dateTo") || ""),
-        });
-      }}
+    <CollapsibleFilters
+      activeCount={activeCount}
+      heading={heading}
+      actions={toolbarActions}
     >
-      <div className="space-y-2 lg:col-span-2">
-        <Label htmlFor="search">Search</Label>
-        <Input
-          id="search"
-          name="search"
-          defaultValue={search}
-          placeholder="Action, module, entity type…"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="module">Module</Label>
-        <select
-          id="module"
-          name="module"
-          defaultValue={module}
-          className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-        >
-          {ACTIVITY_MODULES.map((m) => (
-            <option key={m} value={m}>
-              {m === "all" ? "All modules" : m}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="action">Action</Label>
-        <select
-          id="action"
-          name="action"
-          defaultValue={action}
-          className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-        >
-          <option value="">All actions</option>
-          {actionOptions.map((code) => (
-            <option key={code} value={code}>
-              {ACTIVITY_ACTION_LABELS[code] ?? code}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="actorId">Actor</Label>
-        <select
-          id="actorId"
-          name="actorId"
-          defaultValue={actorId}
-          className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-        >
-          <option value="">All actors</option>
-          {actors.map((actor) => (
-            <option key={actor.id} value={actor.id}>
-              {actor.display_name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="dateFrom">From date</Label>
-        <Input id="dateFrom" name="dateFrom" type="date" defaultValue={dateFrom} />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="dateTo">To date</Label>
-        <Input id="dateTo" name="dateTo" type="date" defaultValue={dateTo} />
-      </div>
-      <div className="flex items-end gap-2 lg:col-span-3">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Filtering…" : "Apply"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={pending}
-          onClick={() => startTransition(() => router.push(pathname))}
-        >
-          Clear
-        </Button>
-      </div>
-    </form>
+      <form
+        key={`${search}|${module}|${action}|${actorId}|${dateFrom}|${dateTo}`}
+        className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-2 lg:grid-cols-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          pushParams({
+            search: String(form.get("search") || ""),
+            module: String(form.get("module") || "all"),
+            action: String(form.get("action") || ""),
+            actorId: String(form.get("actorId") || ""),
+            dateFrom: String(form.get("dateFrom") || ""),
+            dateTo: String(form.get("dateTo") || ""),
+          });
+        }}
+      >
+        <div className="space-y-2 lg:col-span-2">
+          <Label htmlFor="search">Search</Label>
+          <Input
+            id="search"
+            name="search"
+            defaultValue={search}
+            placeholder="Action, module, entity type…"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="module">Module</Label>
+          <select
+            id="module"
+            name="module"
+            defaultValue={module}
+            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+          >
+            {ACTIVITY_MODULES.map((m) => (
+              <option key={m} value={m}>
+                {m === "all" ? "All modules" : m}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="action">Action</Label>
+          <select
+            id="action"
+            name="action"
+            defaultValue={action}
+            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+          >
+            <option value="">All actions</option>
+            {actionOptions.map((code) => (
+              <option key={code} value={code}>
+                {ACTIVITY_ACTION_LABELS[code] ?? code}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="actorId">Actor</Label>
+          <select
+            id="actorId"
+            name="actorId"
+            defaultValue={actorId}
+            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+          >
+            <option value="">All actors</option>
+            {actors.map((actor) => (
+              <option key={actor.id} value={actor.id}>
+                {actor.display_name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="dateFrom">From date</Label>
+          <Input id="dateFrom" name="dateFrom" type="date" defaultValue={dateFrom} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="dateTo">To date</Label>
+          <Input id="dateTo" name="dateTo" type="date" defaultValue={dateTo} />
+        </div>
+        <div className="flex items-end gap-2 lg:col-span-3">
+          <Button type="submit" disabled={pending}>
+            {pending ? "Filtering…" : "Apply"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={() => startTransition(() => router.push(pathname))}
+          >
+            Clear
+          </Button>
+        </div>
+      </form>
+    </CollapsibleFilters>
   );
 }

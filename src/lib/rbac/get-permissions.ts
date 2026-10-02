@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import {
   ADMIN_GATE_PERMISSIONS,
@@ -5,50 +6,50 @@ import {
   type PermissionCode,
 } from "@/lib/rbac/permissions";
 
-export async function getPermissionCodesForRole(
-  roleId: string,
-): Promise<Set<PermissionCode>> {
-  const supabase = await createClient();
+export const getPermissionCodesForRole = cache(
+  async (roleId: string): Promise<Set<PermissionCode>> => {
+    const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("role_permissions")
-    .select("permissions ( code )")
-    .eq("role_id", roleId);
+    const { data, error } = await supabase
+      .from("role_permissions")
+      .select("permissions ( code )")
+      .eq("role_id", roleId);
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const codes = new Set<PermissionCode>();
-  for (const row of data ?? []) {
-    const permission = Array.isArray(row.permissions)
-      ? row.permissions[0]
-      : row.permissions;
-    const code = permission && "code" in permission ? permission.code : null;
-    if (typeof code === "string" && isPermissionCode(code)) {
-      codes.add(code);
+    if (error) {
+      throw new Error(error.message);
     }
-  }
-  return codes;
-}
 
-export async function getPermissionCodesForUser(
-  userId: string,
-): Promise<Set<PermissionCode>> {
-  const supabase = await createClient();
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("role_id, is_active, deleted_at")
-    .eq("id", userId)
-    .maybeSingle();
+    const codes = new Set<PermissionCode>();
+    for (const row of data ?? []) {
+      const permission = Array.isArray(row.permissions)
+        ? row.permissions[0]
+        : row.permissions;
+      const code = permission && "code" in permission ? permission.code : null;
+      if (typeof code === "string" && isPermissionCode(code)) {
+        codes.add(code);
+      }
+    }
+    return codes;
+  },
+);
 
-  if (error) throw new Error(error.message);
-  if (!profile || !profile.is_active || profile.deleted_at) {
-    return new Set();
-  }
+export const getPermissionCodesForUser = cache(
+  async (userId: string): Promise<Set<PermissionCode>> => {
+    const supabase = await createClient();
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("role_id, is_active, deleted_at")
+      .eq("id", userId)
+      .maybeSingle();
 
-  return getPermissionCodesForRole(profile.role_id);
-}
+    if (error) throw new Error(error.message);
+    if (!profile || !profile.is_active || profile.deleted_at) {
+      return new Set();
+    }
+
+    return getPermissionCodesForRole(profile.role_id);
+  },
+);
 
 export async function listPermissionsCatalog() {
   const supabase = await createClient();

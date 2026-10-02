@@ -1,15 +1,16 @@
-import { createClient } from "@/lib/supabase/server";
+import { cache } from "react";
+import { getAuthUser } from "@/lib/auth/session";
 import type { ProfileWithRole } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
 
-export async function getProfileByUserId(
-  userId: string,
-): Promise<ProfileWithRole | null> {
-  const supabase = await createClient();
+export const getProfileByUserId = cache(
+  async (userId: string): Promise<ProfileWithRole | null> => {
+    const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        `
       id,
       display_name,
       email,
@@ -24,34 +25,34 @@ export async function getProfileByUserId(
         is_system
       )
     `,
-    )
-    .eq("id", userId)
-    .is("deleted_at", null)
-    .maybeSingle();
+      )
+      .eq("id", userId)
+      .is("deleted_at", null)
+      .maybeSingle();
 
-  if (error) {
-    throw new Error(error.message);
-  }
+    if (error) {
+      throw new Error(error.message);
+    }
 
-  if (!data) return null;
+    if (!data) return null;
 
-  const roles = Array.isArray(data.roles) ? data.roles[0] ?? null : data.roles;
+    const roles = Array.isArray(data.roles) ? data.roles[0] ?? null : data.roles;
 
-  return {
-    ...data,
-    roles,
-  } as ProfileWithRole;
-}
+    return {
+      ...data,
+      roles,
+    } as ProfileWithRole;
+  },
+);
 
-export async function getCurrentProfile(): Promise<ProfileWithRole | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-  return getProfileByUserId(user.id);
-}
+/** Deduped per RSC request. */
+export const getCurrentProfile = cache(
+  async (): Promise<ProfileWithRole | null> => {
+    const user = await getAuthUser();
+    if (!user) return null;
+    return getProfileByUserId(user.id);
+  },
+);
 
 /**
  * Active CRM profile required for app access.

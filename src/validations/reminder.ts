@@ -27,6 +27,10 @@ export const reminderFilterSchema = z.object({
   status: z.enum(reminderStatusFilterValues).optional().default("open"),
   assignedUserId: z.string().uuid().optional().or(z.literal("")).default(""),
   customerId: z.string().uuid().optional().or(z.literal("")).default(""),
+  customerType: z
+    .enum(["all", "farmer", "dealer", "distributor", "other"])
+    .optional()
+    .default("all"),
   dateFrom: z.string().optional().default(""),
   dateTo: z.string().optional().default(""),
   page: z.coerce.number().int().min(1).optional().default(1),

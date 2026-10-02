@@ -23,9 +23,11 @@ function DeleteButton() {
 export function DeleteFollowupButton({
   followupId,
   label,
+  onDeleted,
 }: {
   followupId: string;
   label: string;
+  onDeleted?: () => void;
 }) {
   const router = useRouter();
   const [state, formAction] = useActionState<FollowupActionState, FormData>(
@@ -34,8 +36,10 @@ export function DeleteFollowupButton({
   );
 
   useEffect(() => {
-    if (state.success) router.refresh();
-  }, [state.success, router]);
+    if (!state.success) return;
+    if (onDeleted) onDeleted();
+    else router.refresh();
+  }, [state.success, onDeleted, router]);
 
   return (
     <Can permission="followup.delete">

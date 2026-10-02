@@ -9,6 +9,7 @@ export function RemindersPagination({
   status,
   assignedUserId,
   customerId,
+  customerType,
   dateFrom,
   dateTo,
 }: {
@@ -19,6 +20,7 @@ export function RemindersPagination({
   status: string;
   assignedUserId: string;
   customerId: string;
+  customerType: string;
   dateFrom: string;
   dateTo: string;
 }) {
@@ -31,6 +33,9 @@ export function RemindersPagination({
     if (status === "open") params.set("status", "open");
     if (assignedUserId) params.set("assignedUserId", assignedUserId);
     if (customerId) params.set("customerId", customerId);
+    if (customerType && customerType !== "all") {
+      params.set("customerType", customerType);
+    }
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (nextPage > 1) params.set("page", String(nextPage));

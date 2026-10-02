@@ -7,16 +7,36 @@ import {
   getPermissionCodesForRole,
   roleHasAdminGates,
 } from "@/lib/rbac/get-permissions";
+import { isAdministratorRoleName } from "@/lib/rbac/administrator";
 import { authorize } from "@/lib/rbac/authorize";
 import { toActionError } from "@/lib/rbac/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { userCreateSchema, userUpdateSchema } from "@/validations/user";
+import {
+  getUserById,
+  listUsers,
+  type UserRow,
+} from "@/lib/db/users";
+import {
+  userCreateSchema,
+  userFilterSchema,
+  userUpdateSchema,
+  type UserFilterInput,
+} from "@/validations/user";
 
 export type UserActionState = {
   error?: string;
   success?: string;
   userId?: string;
+};
+
+export type UserGridResult = {
+  error?: string;
+  success?: string;
+  userId?: string;
+  user?: UserRow;
+  users?: UserRow[];
+  total?: number;
 };
 
 function appUrl(): string {
@@ -331,6 +351,12 @@ export async function deleteUserAction(
       return { error: "You cannot delete your own account." };
     }
 
+    const target = await getUserById(userId);
+    if (!target) return { error: "User not found." };
+    if (isAdministratorRoleName(target.role?.name)) {
+      return { error: "Administrator accounts cannot be deleted." };
+    }
+
     const guard = await assertNotLastAdminLoss({
       targetUserId: userId,
       nextActive: false,
@@ -361,6 +387,127 @@ export async function deleteUserAction(
     revalidatePath("/users");
     revalidatePath("/roles");
     return { success: "User deleted." };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+export async function loadUsersGridAction(
+  rawFilters: Partial<UserFilterInput> = {},
+): Promise<UserGridResult> {
+  try {
+    await authorize("user.view");
+    const filters = userFilterSchema.parse(rawFilters);
+    const result = await listUsers(filters);
+    return { users: result.users, total: result.total };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+export async function patchUserFieldAction(input: {
+  userId: string;
+  field: "display_name" | "role_id" | "is_active";
+  value: string;
+}): Promise<UserGridResult> {
+  try {
+    const ctx = await authorize("user.update");
+
+    if (!input.userId) return { error: "Missing user id" };
+
+    const existing = await getUserById(input.userId);
+    if (!existing) return { error: "User not found." };
+
+    if (isAdministratorRoleName(existing.role?.name)) {
+      return { error: "Administrator accounts cannot be edited." };
+    }
+
+    const supabase = await createClient();
+    const patch: {
+      display_name?: string;
+      role_id?: string;
+      is_active?: boolean;
+    } = {};
+
+    if (input.field === "display_name") {
+      const display_name = input.value.trim();
+      if (display_name.length < 2) {
+        return { error: "Display name must be at least 2 characters" };
+      }
+      if (display_name.length > 120) {
+        return { error: "Display name is too long" };
+      }
+      patch.display_name = display_name;
+    } else if (input.field === "role_id") {
+      const role_id = input.value.trim();
+      const parsed = userUpdateSchema.shape.role_id.safeParse(role_id);
+      if (!parsed.success) {
+        return { error: parsed.error.issues[0]?.message ?? "Select a role" };
+      }
+      const { data: role, error: roleError } = await supabase
+        .from("roles")
+        .select("id")
+        .eq("id", role_id)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (roleError) throw new Error(roleError.message);
+      if (!role) return { error: "Selected role was not found." };
+
+      const guard = await assertNotLastAdminLoss({
+        targetUserId: input.userId,
+        nextRoleId: role_id,
+      });
+      if (guard) return { error: guard };
+
+      patch.role_id = role_id;
+    } else if (input.field === "is_active") {
+      const nextActive = input.value === "true";
+
+      if (!nextActive && input.userId === ctx.userId) {
+        return { error: "You cannot deactivate your own account." };
+      }
+
+      if (!nextActive) {
+        const guard = await assertNotLastAdminLoss({
+          targetUserId: input.userId,
+          nextActive: false,
+        });
+        if (guard) return { error: guard };
+      }
+
+      patch.is_active = nextActive;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(patch)
+      .eq("id", input.userId)
+      .is("deleted_at", null);
+
+    if (error) throw new Error(error.message);
+
+    await logActivity({
+      actorId: ctx.userId,
+      action: "USER_UPDATED",
+      module: "users",
+      entityType: "user",
+      entityId: input.userId,
+      metadata: { field: input.field, via: "grid" },
+    });
+
+    revalidatePath("/users");
+    revalidatePath("/roles");
+    if (input.field === "display_name" || input.field === "role_id") {
+      revalidatePath("/profile");
+    }
+
+    const user = await getUserById(input.userId);
+    return {
+      success: "Saved",
+      userId: input.userId,
+      user: user ?? undefined,
+    };
   } catch (error) {
     return toActionError(error);
   }

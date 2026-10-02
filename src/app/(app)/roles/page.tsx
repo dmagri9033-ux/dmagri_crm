@@ -15,10 +15,6 @@ export default async function RolesPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h2 className="text-2xl font-semibold tracking-tight">Roles</h2>
-          <p className="text-sm text-muted-foreground">
-            Manage role names and granular permissions. UI hides controls without
-            access; every save is re-checked on the server.
-          </p>
         </div>
         <CreateRoleDialog />
       </div>

@@ -7,6 +7,7 @@ export function CustomersPagination({
   total,
   search,
   productId,
+  customerType,
   purchased,
   followUp,
 }: {
@@ -15,6 +16,7 @@ export function CustomersPagination({
   total: number;
   search: string;
   productId: string;
+  customerType: string;
   purchased: string;
   followUp: string;
 }) {
@@ -24,6 +26,9 @@ export function CustomersPagination({
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (productId) params.set("productId", productId);
+    if (customerType && customerType !== "all") {
+      params.set("customerType", customerType);
+    }
     if (purchased && purchased !== "all") params.set("purchased", purchased);
     if (followUp && followUp !== "all") params.set("followUp", followUp);
     if (nextPage > 1) params.set("page", String(nextPage));

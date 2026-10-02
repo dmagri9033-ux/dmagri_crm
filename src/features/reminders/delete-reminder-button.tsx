@@ -23,9 +23,11 @@ function DeleteButton() {
 export function DeleteReminderButton({
   reminderId,
   label,
+  onSuccess,
 }: {
   reminderId: string;
   label: string;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
   const [state, formAction] = useActionState<ReminderActionState, FormData>(
@@ -34,8 +36,11 @@ export function DeleteReminderButton({
   );
 
   useEffect(() => {
-    if (state.success) router.refresh();
-  }, [state.success, router]);
+    if (state.success) {
+      onSuccess?.();
+      router.refresh();
+    }
+  }, [state.success, router, onSuccess]);
 
   return (
     <Can permission="reminder.delete">

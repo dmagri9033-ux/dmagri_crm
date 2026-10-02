@@ -28,6 +28,10 @@ export const customerFormSchema = z.object({
 export const customerFilterSchema = z.object({
   search: z.string().trim().optional().default(""),
   productId: z.string().uuid().optional().or(z.literal("")).default(""),
+  customerType: z
+    .enum(["all", "farmer", "dealer", "distributor", "other"])
+    .optional()
+    .default("all"),
   purchased: z.enum(["all", "yes", "no"]).optional().default("all"),
   followUp: z.enum(["all", "yes", "no"]).optional().default("all"),
   page: z.coerce.number().int().min(1).optional().default(1),

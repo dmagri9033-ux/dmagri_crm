@@ -20,10 +20,6 @@ export default async function DashboardPage() {
         <h2 className="text-2xl font-semibold tracking-tight">
           Welcome, {ctx.profile.display_name}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Live CRM metrics from the database. Reminder buckets use Asia/Kolkata
-          day boundaries. Role: {ctx.profile.roles?.name ?? "User"}.
-        </p>
       </div>
 
       <DashboardSummaryCards summary={data.summary} />

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { currentUserIsAdministrator } from "@/lib/rbac/administrator";
 import type { Tables } from "@/types/database.types";
 import {
   userFilterSchema,
@@ -43,6 +44,19 @@ export async function listUsers(
 
   if (filters.role_id) {
     query = query.eq("role_id", filters.role_id);
+  }
+
+  // Non-admins never see Administrator accounts in the Users list.
+  if (!(await currentUserIsAdministrator())) {
+    const { data: adminRoles } = await supabase
+      .from("roles")
+      .select("id")
+      .ilike("name", "Administrator")
+      .is("deleted_at", null);
+    const adminRoleIds = (adminRoles ?? []).map((r) => r.id);
+    if (adminRoleIds.length > 0) {
+      query = query.not("role_id", "in", `(${adminRoleIds.join(",")})`);
+    }
   }
 
   const from = (filters.page - 1) * filters.pageSize;

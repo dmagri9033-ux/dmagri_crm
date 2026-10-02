@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { CreateFollowupDialog } from "@/features/follow-ups/create-followup-dialog";
 import { FollowupFilters } from "@/features/follow-ups/followup-filters";
 import { FollowupsPagination } from "@/features/follow-ups/followups-pagination";
 import { FollowupsTable } from "@/features/follow-ups/followups-table";
@@ -9,6 +8,8 @@ import { listFollowups } from "@/lib/db/followups";
 import { listInquiries } from "@/lib/db/inquiries";
 import { requirePagePermission } from "@/lib/rbac/require-page-permission";
 import { followupFilterSchema } from "@/validations/followup";
+
+export const dynamic = "force-dynamic";
 
 export default async function FollowUpsPage({
   searchParams,
@@ -24,6 +25,8 @@ export default async function FollowUpsPage({
     dateFrom: typeof raw.dateFrom === "string" ? raw.dateFrom : "",
     dateTo: typeof raw.dateTo === "string" ? raw.dateTo : "",
     customerId: typeof raw.customerId === "string" ? raw.customerId : "",
+    customerType:
+      typeof raw.customerType === "string" ? raw.customerType : "all",
     linked: typeof raw.linked === "string" ? raw.linked : "all",
     page: typeof raw.page === "string" ? raw.page : "1",
   });
@@ -44,28 +47,18 @@ export default async function FollowUpsPage({
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight">Follow-ups</h2>
-          <p className="text-sm text-muted-foreground">
-            Append-only conversation history per customer. Each new follow-up is a
-            new row — never overwrites the last one.
-          </p>
-        </div>
-        <CreateFollowupDialog
-          customers={customersResult.customers}
-          inquiries={inquiryOptions}
-        />
-      </div>
-
       <Suspense fallback={null}>
         <FollowupFilters
           search={filters.search}
           dateFrom={filters.dateFrom}
           dateTo={filters.dateTo}
           customerId={filters.customerId}
+          customerType={filters.customerType}
           linked={filters.linked}
           customers={customersResult.customers}
+          heading={
+            <h2 className="text-2xl font-semibold tracking-tight">Follow-ups</h2>
+          }
         />
       </Suspense>
 
@@ -73,6 +66,7 @@ export default async function FollowUpsPage({
         followups={result.followups}
         customers={customersResult.customers}
         inquiries={inquiryOptions}
+        filters={filters}
       />
 
       <FollowupsPagination
@@ -83,6 +77,7 @@ export default async function FollowUpsPage({
         dateFrom={filters.dateFrom}
         dateTo={filters.dateTo}
         customerId={filters.customerId}
+        customerType={filters.customerType}
         linked={filters.linked}
       />
     </div>

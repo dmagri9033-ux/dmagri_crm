@@ -6,7 +6,6 @@ import { useFormStatus } from "react-dom";
 import {
   deleteUserAction,
   resetUserPasswordAction,
-  setUserActiveAction,
   type UserActionState,
 } from "@/actions/users";
 import { Can } from "@/components/shared/can";
@@ -29,12 +28,22 @@ function ActionButton({
   );
 }
 
-export function UserRowActions({ user }: { user: UserRow }) {
+export function UserRowActions({
+  user,
+  onDeleted,
+  readOnly = false,
+}: {
+  user: UserRow;
+  onDeleted?: (id: string) => void;
+  /** Hide mutating actions (e.g. Administrator accounts). */
+  readOnly?: boolean;
+}) {
+  if (readOnly) {
+    return (
+      <p className="text-[10px] text-muted-foreground">Read-only</p>
+    );
+  }
   const router = useRouter();
-  const [toggleState, toggleAction] = useActionState<UserActionState, FormData>(
-    setUserActiveAction,
-    {},
-  );
   const [resetState, resetAction] = useActionState<UserActionState, FormData>(
     resetUserPasswordAction,
     {},
@@ -45,17 +54,22 @@ export function UserRowActions({ user }: { user: UserRow }) {
   );
 
   useEffect(() => {
-    if (toggleState.success || resetState.success || deleteState.success) {
+    if (deleteState.success && onDeleted) {
+      onDeleted(user.id);
+      return;
+    }
+    if (resetState.success || deleteState.success) {
       router.refresh();
     }
   }, [
-    toggleState.success,
-    resetState.success,
     deleteState.success,
+    resetState.success,
+    onDeleted,
+    user.id,
     router,
   ]);
 
-  const error = toggleState.error || resetState.error || deleteState.error;
+  const error = resetState.error || deleteState.error;
   const success = resetState.success;
 
   return (
@@ -72,21 +86,6 @@ export function UserRowActions({ user }: { user: UserRow }) {
       ) : null}
 
       <div className="flex flex-wrap justify-end gap-2">
-        <Can permission="user.update">
-          <form action={toggleAction}>
-            <input type="hidden" name="userId" value={user.id} />
-            <input
-              type="hidden"
-              name="is_active"
-              value={user.is_active ? "false" : "true"}
-            />
-            <ActionButton
-              label={user.is_active ? "Deactivate" : "Activate"}
-              variant="secondary"
-            />
-          </form>
-        </Can>
-
         <Can permission="user.reset_password">
           <form
             action={resetAction}

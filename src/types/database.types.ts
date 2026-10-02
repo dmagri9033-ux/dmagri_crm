@@ -243,7 +243,7 @@ export type Database = {
           inquiry_date: string;
           customer_id: string;
           customer_type: string | null;
-          product_id: string;
+          product_id: string | null;
           product_purchased: boolean;
           remarks: string | null;
           assigned_user_id: string | null;
@@ -254,13 +254,14 @@ export type Database = {
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
+          completed_at: string | null;
         };
         Insert: {
           id?: string;
           inquiry_date: string;
           customer_id: string;
           customer_type?: string | null;
-          product_id: string;
+          product_id?: string | null;
           product_purchased?: boolean;
           remarks?: string | null;
           assigned_user_id?: string | null;
@@ -271,13 +272,14 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
+          completed_at?: string | null;
         };
         Update: {
           id?: string;
           inquiry_date?: string;
           customer_id?: string;
           customer_type?: string | null;
-          product_id?: string;
+          product_id?: string | null;
           product_purchased?: boolean;
           remarks?: string | null;
           assigned_user_id?: string | null;
@@ -288,6 +290,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
+          completed_at?: string | null;
         };
         Relationships: [
           {

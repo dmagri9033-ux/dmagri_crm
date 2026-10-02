@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
+import { administratorCreatorOrFilter } from "@/lib/rbac/administrator";
 import type { Tables } from "@/types/database.types";
 import {
   customerFilterSchema,
@@ -65,6 +66,10 @@ export async function listCustomers(
     query = query.eq("primary_product_id", filters.productId);
   }
 
+  if (filters.customerType && filters.customerType !== "all") {
+    query = query.eq("customer_type", filters.customerType);
+  }
+
   if (filters.purchased === "yes") {
     query = query.eq("product_purchased", true);
   } else if (filters.purchased === "no") {
@@ -76,6 +81,9 @@ export async function listCustomers(
   } else if (filters.followUp === "no") {
     query = query.eq("follow_up_required", false);
   }
+
+  const hideAdminCreated = await administratorCreatorOrFilter();
+  if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;
   const to = from + filters.pageSize - 1;

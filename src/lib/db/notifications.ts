@@ -1,3 +1,5 @@
+import { cache } from "react";
+import { getAuthUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database.types";
 
@@ -8,48 +10,45 @@ export type NotificationListResult = {
   unreadCount: number;
 };
 
-export async function listMyNotifications(
-  limit = 25,
-): Promise<NotificationListResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export const listMyNotifications = cache(
+  async (limit = 25): Promise<NotificationListResult> => {
+    const user = await getAuthUser();
 
-  if (!user) {
-    return { notifications: [], unreadCount: 0 };
-  }
+    if (!user) {
+      return { notifications: [], unreadCount: 0 };
+    }
 
-  const [{ data, error }, unreadRes] = await Promise.all([
-    supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(limit),
-    supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .is("read_at", null),
-  ]);
+    const supabase = await createClient();
 
-  if (error) throw new Error(error.message);
-  if (unreadRes.error) throw new Error(unreadRes.error.message);
+    const [{ data, error }, unreadRes] = await Promise.all([
+      supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(limit),
+      supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .is("read_at", null),
+    ]);
 
-  return {
-    notifications: data ?? [],
-    unreadCount: unreadRes.count ?? 0,
-  };
-}
+    if (error) throw new Error(error.message);
+    if (unreadRes.error) throw new Error(unreadRes.error.message);
+
+    return {
+      notifications: data ?? [],
+      unreadCount: unreadRes.count ?? 0,
+    };
+  },
+);
 
 export async function markNotificationRead(notificationId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) throw new Error("Unauthorized");
 
+  const supabase = await createClient();
   const { error } = await supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
@@ -61,12 +60,10 @@ export async function markNotificationRead(notificationId: string) {
 }
 
 export async function markAllNotificationsRead() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) throw new Error("Unauthorized");
 
+  const supabase = await createClient();
   const { error } = await supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })

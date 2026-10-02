@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getCurrentProfile } from "@/lib/auth/get-profile";
 import type { ProfileWithRole } from "@/lib/auth/session";
 import { getAuthUser } from "@/lib/auth/session";
@@ -11,7 +12,8 @@ export type SessionContext = {
   permissions: Set<PermissionCode>;
 };
 
-export async function getSessionContext(): Promise<SessionContext> {
+/** Deduped per RSC request — shared by layout and page guards. */
+export const getSessionContext = cache(async (): Promise<SessionContext> => {
   const user = await getAuthUser();
   if (!user) {
     throw new UnauthorizedError();
@@ -29,7 +31,7 @@ export async function getSessionContext(): Promise<SessionContext> {
     profile,
     permissions,
   };
-}
+});
 
 export async function authorize(
   required: PermissionCode | PermissionCode[],

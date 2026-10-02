@@ -15,6 +15,10 @@ export const followupFilterSchema = z.object({
   dateFrom: z.string().optional().default(""),
   dateTo: z.string().optional().default(""),
   customerId: z.string().uuid().optional().or(z.literal("")).default(""),
+  customerType: z
+    .enum(["all", "farmer", "dealer", "distributor", "other"])
+    .optional()
+    .default("all"),
   linked: z.enum(["all", "yes", "no"]).optional().default("all"),
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(5).max(100).optional().default(25),

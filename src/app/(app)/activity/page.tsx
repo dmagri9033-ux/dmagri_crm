@@ -39,14 +39,6 @@ export default async function ActivityPage({
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">Activity</h2>
-        <p className="text-sm text-muted-foreground">
-          Global audit trail for CRM mutations. Customer 360 shows the same
-          events scoped to one customer.
-        </p>
-      </div>
-
       <Suspense fallback={null}>
         <ActivityFilters
           search={filters.search}
@@ -57,6 +49,9 @@ export default async function ActivityPage({
           dateTo={filters.dateTo}
           actors={actors}
           actions={actions}
+          heading={
+            <h2 className="text-2xl font-semibold tracking-tight">Activity</h2>
+          }
         />
       </Suspense>
 
