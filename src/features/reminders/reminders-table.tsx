@@ -399,7 +399,7 @@ function NewReminderRow({
   if (!canCreate) return null;
 
   return (
-    <tr className="border-t border-dashed bg-primary/5">
+    <tr className="border-b border-dashed bg-primary/5">
       <td className="p-1.5">
         <input
           type="datetime-local"
@@ -469,7 +469,8 @@ function NewReminderRow({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="ghost"
+            className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary dark:bg-primary/20 dark:hover:bg-primary/30"
             disabled={pending}
             onClick={() => void saveNewRow()}
           >
@@ -569,6 +570,14 @@ export function RemindersTable({
             </tr>
           </thead>
           <tbody>
+            <NewReminderRow
+              assignees={assignees}
+              defaultAssigneeId={defaultAssigneeId}
+              canCreate={canCreate}
+              onCreated={(reminder) => {
+                upsertRow(reminder);
+              }}
+            />
             {loading && rows.length === 0 ? (
               <tr>
                 <td
@@ -587,7 +596,7 @@ export function RemindersTable({
                   colSpan={8}
                   className="px-4 py-8 text-center text-sm text-muted-foreground"
                 >
-                  No reminders match your filters. Use the row below to add one.
+                  No reminders match your filters. Use the row above to add one.
                 </td>
               </tr>
             ) : (
@@ -602,14 +611,6 @@ export function RemindersTable({
                 />
               ))
             )}
-            <NewReminderRow
-              assignees={assignees}
-              defaultAssigneeId={defaultAssigneeId}
-              canCreate={canCreate}
-              onCreated={(reminder) => {
-                upsertRow(reminder);
-              }}
-            />
           </tbody>
         </table>
       </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { purgeOldActivityLogs } from "@/lib/activity/purge-old-logs";
 import { generateReminderNotifications } from "@/lib/notifications/generate-reminder-notifications";
 
 export const runtime = "nodejs";
@@ -22,7 +23,8 @@ function authorizeCron(request: Request): boolean {
 
 /**
  * Daily cron (Hobby-compatible): fan out today/overdue reminder notifications
- * (idempotent via dedupe_key). Schedule in vercel.json: 30 0 * * * (06:00 IST).
+ * and purge activity logs from before today IST.
+ * Schedule in vercel.json: 30 0 * * * (06:00 IST).
  * Auth: Authorization: Bearer $CRON_SECRET (or ?secret= for manual runs).
  */
 export async function GET(request: Request) {
@@ -30,15 +32,36 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const errors: string[] = [];
+
+  let reminders: Awaited<ReturnType<typeof generateReminderNotifications>> | null =
+    null;
   try {
-    const result = await generateReminderNotifications();
-    return NextResponse.json({
-      ok: true,
-      ...result,
-    });
+    reminders = await generateReminderNotifications();
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("cron/reminders failed:", message);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    console.error("cron/reminders notifications failed:", message);
+    errors.push(`reminders: ${message}`);
   }
+
+  let activityLogs: Awaited<ReturnType<typeof purgeOldActivityLogs>> | null =
+    null;
+  try {
+    activityLogs = await purgeOldActivityLogs();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("cron/reminders activity purge failed:", message);
+    errors.push(`activityLogs: ${message}`);
+  }
+
+  const ok = errors.length === 0;
+  return NextResponse.json(
+    {
+      ok,
+      reminders,
+      activityLogs,
+      ...(errors.length ? { errors } : {}),
+    },
+    { status: ok ? 200 : 500 },
+  );
 }

@@ -66,12 +66,6 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
           })}
         </nav>
       </ScrollArea>
-
-      <div className="border-t border-sidebar-border p-3">
-        <p className="px-1 text-xs text-muted-foreground">
-          Phase 16 — testing.
-        </p>
-      </div>
     </aside>
   );
 }

@@ -1,3 +1,4 @@
+import { collectPagesForExport } from "@/lib/db/export-pages";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database.types";
 import {
@@ -50,6 +51,25 @@ export async function listProducts(
     page: filters.page,
     pageSize: filters.pageSize,
   };
+}
+
+/** Unpaginated list for Excel export (capped). */
+export async function listProductsForExport(
+  rawFilters: Partial<ProductFilterInput> = {},
+  limit = 5000,
+): Promise<Product[]> {
+  return collectPagesForExport({
+    filters: rawFilters,
+    limit,
+    list: async (filters) => {
+      const result = await listProducts(filters);
+      return {
+        items: result.products,
+        total: result.total,
+        pageSize: result.pageSize,
+      };
+    },
+  });
 }
 
 /** Active, non-deleted products for inquiry/customer pickers. */

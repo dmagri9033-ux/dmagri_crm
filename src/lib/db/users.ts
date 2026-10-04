@@ -1,3 +1,4 @@
+import { collectPagesForExport } from "@/lib/db/export-pages";
 import { createClient } from "@/lib/supabase/server";
 import { currentUserIsAdministrator } from "@/lib/rbac/administrator";
 import type { Tables } from "@/types/database.types";
@@ -95,6 +96,25 @@ export async function listUsers(
     page: filters.page,
     pageSize: filters.pageSize,
   };
+}
+
+/** Unpaginated list for Excel export (capped). */
+export async function listUsersForExport(
+  rawFilters: Partial<UserFilterInput> = {},
+  limit = 5000,
+): Promise<UserRow[]> {
+  return collectPagesForExport({
+    filters: rawFilters,
+    limit,
+    list: async (filters) => {
+      const result = await listUsers(filters);
+      return {
+        items: result.users,
+        total: result.total,
+        pageSize: result.pageSize,
+      };
+    },
+  });
 }
 
 export async function getUserById(id: string): Promise<UserRow | null> {

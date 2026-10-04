@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ExportExcelButton } from "@/features/import/export-excel-button";
 import { FollowupFilters } from "@/features/follow-ups/followup-filters";
 import { FollowupsPagination } from "@/features/follow-ups/followups-pagination";
 import { FollowupsTable } from "@/features/follow-ups/followups-table";
@@ -58,6 +59,20 @@ export default async function FollowUpsPage({
           customers={customersResult.customers}
           heading={
             <h2 className="text-2xl font-semibold tracking-tight">Follow-ups</h2>
+          }
+          actions={
+            <ExportExcelButton
+              exportPermission="followup.export"
+              exportHref="/api/excel/export/follow-ups"
+              filterParams={{
+                search: filters.search,
+                dateFrom: filters.dateFrom,
+                dateTo: filters.dateTo,
+                customerId: filters.customerId,
+                customerType: filters.customerType,
+                linked: filters.linked,
+              }}
+            />
           }
         />
       </Suspense>

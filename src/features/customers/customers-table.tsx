@@ -304,7 +304,8 @@ function CustomerEditableRow({
               nativeButton={false}
               type="button"
               size="sm"
-              variant="outline"
+              variant="ghost"
+              className="bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 hover:text-sky-800 dark:bg-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/30 dark:hover:text-sky-200"
             >
               Open 360°
             </Button>
@@ -386,7 +387,7 @@ function NewCustomerRow({
   if (!canCreate) return null;
 
   return (
-    <tr className="border-t border-dashed bg-primary/5">
+    <tr className="border-b border-dashed bg-primary/5">
       <td className="p-1.5">
         <input
           className={cn(gridCellInputClass, "min-w-[10rem] font-medium")}
@@ -472,7 +473,13 @@ function NewCustomerRow({
       <td className="p-1.5">
         <div className="flex flex-col items-end gap-1">
           <GridSaveIndicator state={status} error={error} />
-          <Button type="button" size="sm" variant="outline" onClick={() => void add()}>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary dark:bg-primary/20 dark:hover:bg-primary/30"
+            onClick={() => void add()}
+          >
             <Plus className="size-3.5" />
             Add
           </Button>
@@ -566,6 +573,13 @@ export function CustomersTable({
             </tr>
           </thead>
           <tbody>
+            <NewCustomerRow
+              products={products}
+              canCreate={canCreate}
+              onCreated={(customer) => {
+                upsertRow(customer);
+              }}
+            />
             {loading && rows.length === 0 ? (
               <tr>
                 <td
@@ -584,7 +598,7 @@ export function CustomersTable({
                   colSpan={7}
                   className="px-4 py-8 text-center text-sm text-muted-foreground"
                 >
-                  No customers match your filters. Use the row below to add one.
+                  No customers match your filters. Use the row above to add one.
                 </td>
               </tr>
             ) : (
@@ -598,13 +612,6 @@ export function CustomersTable({
                 />
               ))
             )}
-            <NewCustomerRow
-              products={products}
-              canCreate={canCreate}
-              onCreated={(customer) => {
-                upsertRow(customer);
-              }}
-            />
           </tbody>
         </table>
       </div>

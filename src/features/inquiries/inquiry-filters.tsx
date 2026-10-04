@@ -49,11 +49,14 @@ export function InquiryFilters({
   function pushParams(next: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());
     for (const [key, value] of Object.entries(next)) {
-      if (
-        !value ||
-        value === "all" ||
-        (key === "status" && value === "open")
-      ) {
+      // Status defaults to "open" when omitted. Keep "all" / "completed" in the URL
+      // so selecting All is not treated like the open default.
+      if (key === "status") {
+        if (!value || value === "open") params.delete(key);
+        else params.set(key, value);
+        continue;
+      }
+      if (!value || value === "all") {
         params.delete(key);
       } else {
         params.set(key, value);

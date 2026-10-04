@@ -1,3 +1,4 @@
+import { collectPagesForExport } from "@/lib/db/export-pages";
 import { createClient } from "@/lib/supabase/server";
 import { administratorCreatorOrFilter } from "@/lib/rbac/administrator";
 import type { Tables } from "@/types/database.types";
@@ -143,6 +144,25 @@ export async function listFollowups(
     page: filters.page,
     pageSize: filters.pageSize,
   };
+}
+
+/** Unpaginated list for Excel export (capped). */
+export async function listFollowupsForExport(
+  rawFilters: Partial<FollowupFilterInput> = {},
+  limit = 5000,
+): Promise<FollowupWithRelations[]> {
+  return collectPagesForExport({
+    filters: rawFilters,
+    limit,
+    list: async (filters) => {
+      const result = await listFollowups(filters);
+      return {
+        items: result.followups,
+        total: result.total,
+        pageSize: result.pageSize,
+      };
+    },
+  });
 }
 
 export async function getFollowupById(

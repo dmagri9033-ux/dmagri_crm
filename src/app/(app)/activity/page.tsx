@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ExportExcelButton } from "@/features/import/export-excel-button";
 import { ActivityFilters } from "@/features/activity/activity-filters";
 import { ActivityPagination } from "@/features/activity/activity-pagination";
 import { ActivityTable } from "@/features/activity/activity-table";
@@ -51,6 +52,21 @@ export default async function ActivityPage({
           actions={actions}
           heading={
             <h2 className="text-2xl font-semibold tracking-tight">Activity</h2>
+          }
+          toolbarActions={
+            <ExportExcelButton
+              exportPermission="activity.export"
+              exportHref="/api/excel/export/activity"
+              filterParams={{
+                search: filters.search,
+                module: filters.module,
+                action: filters.action,
+                actorId: filters.actorId,
+                customerId: filters.customerId,
+                dateFrom: filters.dateFrom,
+                dateTo: filters.dateTo,
+              }}
+            />
           }
         />
       </Suspense>

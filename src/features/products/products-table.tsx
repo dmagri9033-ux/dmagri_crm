@@ -185,7 +185,7 @@ function NewProductRow({
   if (!canCreate) return null;
 
   return (
-    <tr className="border-t border-dashed bg-primary/5">
+    <tr className="border-b border-dashed bg-primary/5">
       <td className="p-1.5">
         <input
           className={cn(gridCellInputClass, "min-w-[12rem] font-medium")}
@@ -214,7 +214,13 @@ function NewProductRow({
       <td className="p-1.5">
         <div className="flex flex-col items-end gap-1">
           <GridSaveIndicator state={status} error={error} />
-          <Button type="button" size="sm" variant="outline" onClick={() => void add()}>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary dark:bg-primary/20 dark:hover:bg-primary/30"
+            onClick={() => void add()}
+          >
             <Plus className="size-3.5" />
             Add
           </Button>
@@ -280,6 +286,12 @@ export function ProductsTable({
             </tr>
           </thead>
           <tbody>
+            <NewProductRow
+              canCreate={canCreate}
+              onCreated={(product) => {
+                setRows((prev) => [...prev, product].sort((a, b) => a.name.localeCompare(b.name)));
+              }}
+            />
             {loading && rows.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -289,7 +301,7 @@ export function ProductsTable({
             ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  No products yet. Use the row below to add one.
+                  No products yet. Use the row above to add one.
                 </td>
               </tr>
             ) : (
@@ -307,12 +319,6 @@ export function ProductsTable({
                 />
               ))
             )}
-            <NewProductRow
-              canCreate={canCreate}
-              onCreated={(product) => {
-                setRows((prev) => [...prev, product].sort((a, b) => a.name.localeCompare(b.name)));
-              }}
-            />
           </tbody>
         </table>
       </div>

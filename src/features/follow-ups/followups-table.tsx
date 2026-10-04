@@ -351,7 +351,7 @@ function NewFollowupRow({
   if (!canCreate) return null;
 
   return (
-    <tr className="border-t border-dashed bg-primary/5">
+    <tr className="border-b border-dashed bg-primary/5">
       <td className="p-1.5">
         <input
           type="date"
@@ -411,7 +411,8 @@ function NewFollowupRow({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="ghost"
+            className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary dark:bg-primary/20 dark:hover:bg-primary/30"
             disabled={status === "saving"}
             onClick={() => void saveNewRow()}
           >
@@ -513,6 +514,14 @@ export function FollowupsTable({
             </tr>
           </thead>
           <tbody>
+            <NewFollowupRow
+              customers={customers}
+              inquiries={inquiries}
+              canCreate={canCreate}
+              onCreated={(followup) => {
+                upsertRow(followup);
+              }}
+            />
             {loading && rows.length === 0 ? (
               <tr>
                 <td
@@ -531,7 +540,7 @@ export function FollowupsTable({
                   colSpan={5}
                   className="px-4 py-8 text-center text-sm text-muted-foreground"
                 >
-                  No follow-ups yet. Use the row below to add the first one.
+                  No follow-ups yet. Use the row above to add the first one.
                 </td>
               </tr>
             ) : (
@@ -546,14 +555,6 @@ export function FollowupsTable({
                 />
               ))
             )}
-            <NewFollowupRow
-              customers={customers}
-              inquiries={inquiries}
-              canCreate={canCreate}
-              onCreated={(followup) => {
-                upsertRow(followup);
-              }}
-            />
           </tbody>
         </table>
       </div>

@@ -84,9 +84,9 @@ export function WhatsAppMessageButton({
       <Button
         type="button"
         size="icon-sm"
-        variant="outline"
+        variant="ghost"
         className={cn(
-          "shrink-0 border-emerald-600/40 text-emerald-700 hover:bg-emerald-500/10 hover:text-emerald-800 dark:text-emerald-400",
+          "shrink-0 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 hover:text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400 dark:hover:bg-emerald-500/30 dark:hover:text-emerald-300",
           className,
         )}
         disabled={!valid}

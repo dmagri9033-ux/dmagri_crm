@@ -16,15 +16,18 @@ export const PERMISSION_CODES = [
   "product.create",
   "product.update",
   "product.delete",
+  "product.export",
   "reminder.view",
   "reminder.create",
   "reminder.update",
   "reminder.delete",
   "reminder.complete",
+  "reminder.export",
   "followup.view",
   "followup.create",
   "followup.update",
   "followup.delete",
+  "followup.export",
   "role.view",
   "role.create",
   "role.update",
@@ -34,7 +37,9 @@ export const PERMISSION_CODES = [
   "user.update",
   "user.delete",
   "user.reset_password",
+  "user.export",
   "activity.view",
+  "activity.export",
 ] as const;
 
 export type PermissionCode = (typeof PERMISSION_CODES)[number];
@@ -91,6 +96,7 @@ export const PERMISSION_MODULES: {
       { code: "product.create", label: "Create" },
       { code: "product.update", label: "Update" },
       { code: "product.delete", label: "Delete" },
+      { code: "product.export", label: "Export" },
     ],
   },
   {
@@ -102,6 +108,7 @@ export const PERMISSION_MODULES: {
       { code: "reminder.update", label: "Update" },
       { code: "reminder.delete", label: "Delete" },
       { code: "reminder.complete", label: "Complete" },
+      { code: "reminder.export", label: "Export" },
     ],
   },
   {
@@ -112,6 +119,7 @@ export const PERMISSION_MODULES: {
       { code: "followup.create", label: "Create" },
       { code: "followup.update", label: "Update" },
       { code: "followup.delete", label: "Delete" },
+      { code: "followup.export", label: "Export" },
     ],
   },
   {
@@ -133,11 +141,15 @@ export const PERMISSION_MODULES: {
       { code: "user.update", label: "Update" },
       { code: "user.delete", label: "Delete" },
       { code: "user.reset_password", label: "Reset password" },
+      { code: "user.export", label: "Export" },
     ],
   },
   {
     module: "activity",
     label: "Activity",
-    permissions: [{ code: "activity.view", label: "View" }],
+    permissions: [
+      { code: "activity.view", label: "View" },
+      { code: "activity.export", label: "Export" },
+    ],
   },
 ];

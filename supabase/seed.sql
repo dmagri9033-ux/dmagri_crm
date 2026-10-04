@@ -26,17 +26,20 @@ INSERT INTO public.permissions (code, module, description) VALUES
   ('product.create', 'products', 'Create products'),
   ('product.update', 'products', 'Edit / activate / deactivate products'),
   ('product.delete', 'products', 'Delete products with safeguards'),
+  ('product.export', 'products', 'Excel export products'),
 
   ('reminder.view', 'reminders', 'List reminders'),
   ('reminder.create', 'reminders', 'Create reminders'),
   ('reminder.update', 'reminders', 'Edit, snooze, reopen reminders'),
   ('reminder.delete', 'reminders', 'Delete reminders'),
   ('reminder.complete', 'reminders', 'Mark reminders complete'),
+  ('reminder.export', 'reminders', 'Excel export reminders'),
 
   ('followup.view', 'followups', 'List and view follow-ups'),
   ('followup.create', 'followups', 'Add follow-ups'),
   ('followup.update', 'followups', 'Edit follow-ups'),
   ('followup.delete', 'followups', 'Delete follow-ups'),
+  ('followup.export', 'followups', 'Excel export follow-ups'),
 
   ('role.view', 'roles', 'List roles'),
   ('role.create', 'roles', 'Create roles'),
@@ -48,8 +51,10 @@ INSERT INTO public.permissions (code, module, description) VALUES
   ('user.update', 'users', 'Edit users / activate / deactivate'),
   ('user.delete', 'users', 'Delete or deactivate users'),
   ('user.reset_password', 'users', 'Trigger password reset for another user'),
+  ('user.export', 'users', 'Excel export users'),
 
-  ('activity.view', 'activity', 'View global activity log')
+  ('activity.view', 'activity', 'View global activity log'),
+  ('activity.export', 'activity', 'Excel export activity logs')
 ON CONFLICT (code) DO UPDATE
 SET
   module = EXCLUDED.module,
@@ -101,9 +106,9 @@ JOIN public.permissions p ON p.code IN (
   'dashboard.view',
   'inquiry.view', 'inquiry.create', 'inquiry.update', 'inquiry.import', 'inquiry.export',
   'customer.view', 'customer.create', 'customer.update', 'customer.import', 'customer.export',
-  'product.view',
-  'reminder.view', 'reminder.create', 'reminder.update', 'reminder.complete',
-  'followup.view', 'followup.create', 'followup.update'
+  'product.view', 'product.export',
+  'reminder.view', 'reminder.create', 'reminder.update', 'reminder.complete', 'reminder.export',
+  'followup.view', 'followup.create', 'followup.update', 'followup.export'
 )
 WHERE r.name = 'Sales Executive'
 ON CONFLICT DO NOTHING;

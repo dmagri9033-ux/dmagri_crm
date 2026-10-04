@@ -1,54 +1,55 @@
 import { NextResponse } from "next/server";
-import { listInquiriesForExport } from "@/lib/db/inquiries";
+import { listFollowupsForExport } from "@/lib/db/followups";
 import { excelWorkbookResponse } from "@/lib/excel/export-response";
 import { authorize } from "@/lib/rbac/authorize";
 import { ForbiddenError, UnauthorizedError } from "@/lib/rbac/errors";
-import { inquiryFilterSchema } from "@/validations/inquiry";
+import { followupFilterSchema } from "@/validations/followup";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    await authorize("inquiry.export");
+    await authorize("followup.export");
     const url = new URL(request.url);
-    const filters = inquiryFilterSchema.parse({
+    const filters = followupFilterSchema.parse({
       search: url.searchParams.get("search") ?? "",
       dateFrom: url.searchParams.get("dateFrom") ?? "",
       dateTo: url.searchParams.get("dateTo") ?? "",
+      customerId: url.searchParams.get("customerId") ?? "",
       customerType: url.searchParams.get("customerType") ?? "all",
-      productId: url.searchParams.get("productId") ?? "",
-      purchased: url.searchParams.get("purchased") ?? "all",
-      status: url.searchParams.get("status") ?? "open",
+      linked: url.searchParams.get("linked") ?? "all",
       page: 1,
       pageSize: 100,
     });
 
-    const inquiries = await listInquiriesForExport(filters);
+    const followups = await listFollowupsForExport(filters);
 
     return excelWorkbookResponse({
-      sheetName: "Inquiries",
-      filenamePrefix: "inquiries-export",
+      sheetName: "Follow-ups",
+      filenamePrefix: "followups-export",
       headers: [
         "Date",
         "Customer Name",
         "Mobile",
         "Customer Type",
-        "Product",
-        "Purchased",
-        "Status",
-        "Remarks",
+        "Linked Inquiry",
+        "Notes",
         "Created By",
       ],
-      rows: inquiries.map((inquiry) => [
-        inquiry.inquiry_date,
-        inquiry.customers?.name || inquiry.customer_name_snapshot || "",
-        inquiry.customers?.mobile || inquiry.mobile_snapshot || "",
-        inquiry.customer_type ?? "",
-        inquiry.products?.name || inquiry.product_name_snapshot || "",
-        inquiry.product_purchased ? "Yes" : "No",
-        inquiry.completed_at ? "Completed" : "Open",
-        inquiry.remarks ?? "",
-        inquiry.created_by_profile?.display_name ?? "",
+      rows: followups.map((followup) => [
+        followup.followup_date,
+        followup.customers?.name ?? "",
+        followup.customers?.mobile ?? "",
+        followup.customers?.customer_type ?? "",
+        followup.inquiries
+          ? `${followup.inquiries.inquiry_date}${
+              followup.inquiries.product_name_snapshot
+                ? ` · ${followup.inquiries.product_name_snapshot}`
+                : ""
+            }`
+          : "",
+        followup.notes ?? "",
+        followup.created_by_profile?.display_name ?? "",
       ]),
     });
   } catch (error) {

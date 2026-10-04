@@ -11,10 +11,22 @@ import {
 import { Can } from "@/components/shared/can";
 import { Button } from "@/components/ui/button";
 
-function ActionButton({ label }: { label: string }) {
+function ActionButton({
+  label,
+  className,
+}: {
+  label: string;
+  className: string;
+}) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="sm" variant="outline" disabled={pending}>
+    <Button
+      type="submit"
+      size="sm"
+      variant="ghost"
+      className={className}
+      disabled={pending}
+    >
       {pending ? "…" : label}
     </Button>
   );
@@ -63,14 +75,20 @@ export function InquiryStatusActions({
         <Can permission="inquiry.update">
           <form action={completeAction}>
             <input type="hidden" name="inquiryId" value={inquiryId} />
-            <ActionButton label="Complete" />
+            <ActionButton
+              label="Complete"
+              className="bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/20 hover:text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-300 dark:hover:bg-emerald-500/30 dark:hover:text-emerald-200"
+            />
           </form>
         </Can>
       ) : (
         <Can permission="inquiry.update">
           <form action={reopenAction}>
             <input type="hidden" name="inquiryId" value={inquiryId} />
-            <ActionButton label="Reopen" />
+            <ActionButton
+              label="Reopen"
+              className="bg-amber-500/10 text-amber-900 hover:bg-amber-500/20 hover:text-amber-950 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30 dark:hover:text-amber-100"
+            />
           </form>
         </Can>
       )}

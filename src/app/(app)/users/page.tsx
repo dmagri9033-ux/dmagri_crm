@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ExportExcelButton } from "@/features/import/export-excel-button";
 import { CreateUserDialog } from "@/features/users/create-user-dialog";
 import { UserFilters } from "@/features/users/user-filters";
 import { UsersPagination } from "@/features/users/users-pagination";
@@ -42,7 +43,20 @@ export default async function UsersPage({
           heading={
             <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
           }
-          actions={<CreateUserDialog roles={roles} />}
+          actions={
+            <>
+              <ExportExcelButton
+                exportPermission="user.export"
+                exportHref="/api/excel/export/users"
+                filterParams={{
+                  search: filters.search,
+                  status: filters.status,
+                  role_id: filters.role_id,
+                }}
+              />
+              <CreateUserDialog roles={roles} />
+            </>
+          }
         />
       </Suspense>
 

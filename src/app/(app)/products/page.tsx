@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ExportExcelButton } from "@/features/import/export-excel-button";
 import { ProductFilters } from "@/features/products/product-filters";
 import { ProductsPagination } from "@/features/products/products-pagination";
 import { ProductsTable } from "@/features/products/products-table";
@@ -34,6 +35,16 @@ export default async function ProductsPage({
           status={filters.status}
           heading={
             <h2 className="text-2xl font-semibold tracking-tight">Products</h2>
+          }
+          actions={
+            <ExportExcelButton
+              exportPermission="product.export"
+              exportHref="/api/excel/export/products"
+              filterParams={{
+                search: filters.search,
+                status: filters.status,
+              }}
+            />
           }
         />
       </Suspense>

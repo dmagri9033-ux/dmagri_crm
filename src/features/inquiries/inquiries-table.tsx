@@ -393,8 +393,9 @@ function InquiryEditableRow({
                 defaultCustomerId={inquiry.customer_id}
                 defaultInquiryId={inquiry.id}
                 triggerLabel="Follow-up"
-                triggerVariant="outline"
+                triggerVariant="ghost"
                 triggerSize="sm"
+                triggerClassName="bg-violet-500/10 text-violet-800 hover:bg-violet-500/20 hover:text-violet-900 dark:bg-violet-500/20 dark:text-violet-300 dark:hover:bg-violet-500/30 dark:hover:text-violet-200"
               />
             ) : null}
             <DeleteInquiryButton
@@ -482,7 +483,7 @@ function NewInquiryRow({
   if (!canCreate) return null;
 
   return (
-    <tr className="border-t border-dashed bg-primary/5">
+    <tr className="border-b border-dashed bg-primary/5">
       <td className="p-1.5">
         <input
           type="date"
@@ -564,7 +565,8 @@ function NewInquiryRow({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="ghost"
+            className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary dark:bg-primary/20 dark:hover:bg-primary/30"
             disabled={pending}
             onClick={() => void saveNewRow()}
           >
@@ -673,6 +675,15 @@ export function InquiriesTable({
             </tr>
           </thead>
           <tbody>
+            {statusFilter !== "completed" ? (
+              <NewInquiryRow
+                products={products}
+                canCreate={canCreate}
+                onCreated={(inquiry) => {
+                  upsertRow(inquiry);
+                }}
+              />
+            ) : null}
             {loading && rows.length === 0 ? (
               <tr>
                 <td
@@ -693,10 +704,10 @@ export function InquiriesTable({
                 >
                   No inquiries match your filters.
                   {statusFilter === "open"
-                    ? " Use the row below to add one."
+                    ? " Use the row above to add one."
                     : statusFilter === "completed"
                       ? " Switch Status to Open to see active inquiries."
-                      : " Use the row below to add one."}
+                      : " Use the row above to add one."}
                 </td>
               </tr>
             ) : (
@@ -714,15 +725,6 @@ export function InquiriesTable({
                 />
               ))
             )}
-            {statusFilter !== "completed" ? (
-              <NewInquiryRow
-                products={products}
-                canCreate={canCreate}
-                onCreated={(inquiry) => {
-                  upsertRow(inquiry);
-                }}
-              />
-            ) : null}
           </tbody>
         </table>
       </div>

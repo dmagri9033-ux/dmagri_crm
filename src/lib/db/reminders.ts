@@ -5,6 +5,7 @@ import {
   startOfTodayIst,
   type ReminderUiStatus,
 } from "@/lib/datetime/ist";
+import { collectPagesForExport } from "@/lib/db/export-pages";
 import { administratorCreatorOrFilter } from "@/lib/rbac/administrator";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database.types";
@@ -281,6 +282,25 @@ export async function listReminders(
     page: filters.page,
     pageSize: filters.pageSize,
   };
+}
+
+/** Unpaginated list for Excel export (capped). */
+export async function listRemindersForExport(
+  rawFilters: Partial<ReminderFilterInput> = {},
+  limit = 5000,
+): Promise<ReminderWithRelations[]> {
+  return collectPagesForExport({
+    filters: rawFilters,
+    limit,
+    list: async (filters) => {
+      const result = await listReminders(filters);
+      return {
+        items: result.reminders,
+        total: result.total,
+        pageSize: result.pageSize,
+      };
+    },
+  });
 }
 
 export async function getReminderById(

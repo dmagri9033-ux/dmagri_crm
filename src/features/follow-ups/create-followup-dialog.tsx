@@ -25,6 +25,7 @@ export function CreateFollowupDialog({
   triggerLabel = "Add follow-up",
   triggerVariant = "default",
   triggerSize = "default",
+  triggerClassName,
 }: {
   customers: Customer[];
   inquiries: FollowupInquiryOption[];
@@ -33,6 +34,7 @@ export function CreateFollowupDialog({
   triggerLabel?: string;
   triggerVariant?: "default" | "outline" | "secondary" | "ghost";
   triggerSize?: "default" | "sm";
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -42,6 +44,7 @@ export function CreateFollowupDialog({
         type="button"
         variant={triggerVariant}
         size={triggerSize}
+        className={triggerClassName}
         onClick={() => setOpen(true)}
       >
         {triggerSize === "default" ? <Plus className="size-4" /> : null}

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ExportExcelButton } from "@/features/import/export-excel-button";
 import { ReminderFilters } from "@/features/reminders/reminder-filters";
 import { RemindersPagination } from "@/features/reminders/reminders-pagination";
 import { RemindersTable } from "@/features/reminders/reminders-table";
@@ -56,6 +57,21 @@ export default async function RemindersPage({
           assignees={assignees}
           heading={
             <h2 className="text-2xl font-semibold tracking-tight">Reminders</h2>
+          }
+          actions={
+            <ExportExcelButton
+              exportPermission="reminder.export"
+              exportHref="/api/excel/export/reminders"
+              filterParams={{
+                search: filters.search,
+                status: filters.status,
+                assignedUserId: filters.assignedUserId,
+                customerId: filters.customerId,
+                customerType: filters.customerType,
+                dateFrom: filters.dateFrom,
+                dateTo: filters.dateTo,
+              }}
+            />
           }
         />
       </Suspense>

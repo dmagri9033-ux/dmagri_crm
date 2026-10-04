@@ -16,13 +16,21 @@ import type { UserRow } from "@/lib/db/users";
 function ActionButton({
   label,
   variant = "outline",
+  className,
 }: {
   label: string;
-  variant?: "outline" | "destructive" | "secondary";
+  variant?: "outline" | "destructive" | "secondary" | "ghost";
+  className?: string;
 }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="sm" variant={variant} disabled={pending}>
+    <Button
+      type="submit"
+      size="sm"
+      variant={variant}
+      className={className}
+      disabled={pending}
+    >
       {pending ? "…" : label}
     </Button>
   );
@@ -100,7 +108,11 @@ export function UserRowActions({
             }}
           >
             <input type="hidden" name="userId" value={user.id} />
-            <ActionButton label="Reset password" variant="outline" />
+            <ActionButton
+              label="Reset password"
+              variant="ghost"
+              className="bg-amber-500/10 text-amber-900 hover:bg-amber-500/20 hover:text-amber-950 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30 dark:hover:text-amber-100"
+            />
           </form>
         </Can>
 
