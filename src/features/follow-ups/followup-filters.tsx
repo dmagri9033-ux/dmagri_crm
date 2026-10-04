@@ -16,6 +16,7 @@ export function FollowupFilters({
   customerId,
   customerType,
   linked,
+  status,
   customers,
   heading,
   actions,
@@ -26,6 +27,7 @@ export function FollowupFilters({
   customerId: string;
   customerType: string;
   linked: "all" | "yes" | "no";
+  status: "open" | "completed" | "all";
   customers: Customer[];
   heading?: React.ReactNode;
   actions?: React.ReactNode;
@@ -41,13 +43,23 @@ export function FollowupFilters({
     (dateTo ? 1 : 0) +
     (customerId ? 1 : 0) +
     (customerType && customerType !== "all" ? 1 : 0) +
-    (linked !== "all" ? 1 : 0);
+    (linked !== "all" ? 1 : 0) +
+    (status !== "open" ? 1 : 0);
 
   function pushParams(next: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());
     for (const [key, value] of Object.entries(next)) {
-      if (!value || value === "all") params.delete(key);
-      else params.set(key, value);
+      // Status defaults to "open" when omitted. Keep "all" / "completed" explicit.
+      if (key === "status") {
+        if (!value || value === "open") params.delete(key);
+        else params.set(key, value);
+        continue;
+      }
+      if (!value || value === "all") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
     }
     params.delete("page");
     startTransition(() => {
@@ -63,7 +75,7 @@ export function FollowupFilters({
       actions={actions}
     >
       <form
-        key={`${search}|${dateFrom}|${dateTo}|${customerId}|${customerType}|${linked}`}
+        key={`${search}|${dateFrom}|${dateTo}|${customerId}|${customerType}|${linked}|${status}`}
         className="grid gap-3 rounded-xl border bg-card p-4 md:grid-cols-2 lg:grid-cols-3"
         onSubmit={(event) => {
           event.preventDefault();
@@ -75,6 +87,7 @@ export function FollowupFilters({
             customerId: String(form.get("customerId") || ""),
             customerType: String(form.get("customerType") || "all"),
             linked: String(form.get("linked") || "all"),
+            status: String(form.get("status") || "open"),
           });
         }}
       >
@@ -86,6 +99,19 @@ export function FollowupFilters({
             defaultValue={search}
             placeholder="Notes, customer name, or mobile…"
           />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="status">Status</Label>
+          <select
+            id="status"
+            name="status"
+            defaultValue={status}
+            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+          >
+            <option value="open">Open</option>
+            <option value="completed">Completed</option>
+            <option value="all">All</option>
+          </select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="customerType">Customer type</Label>

@@ -14,6 +14,11 @@ import {
   loadInquiriesGridAction,
   patchInquiryFieldAction,
 } from "@/actions/inquiries";
+import {
+  gridCellInputClass,
+  gridCellNumberClass,
+  gridCellSelectClass,
+} from "@/components/shared/data-grid";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
 import { DeleteInquiryButton } from "@/features/inquiries/delete-inquiry-button";
@@ -30,10 +35,9 @@ import type { InquiryFilterInput } from "@/validations/inquiry";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-const cellInputClass =
-  "h-9 w-full min-w-[6.5rem] rounded-md border border-transparent bg-transparent px-2 text-sm outline-none transition-colors hover:border-border focus:border-ring focus:bg-background focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
-
-const cellSelectClass = cn(cellInputClass, "appearance-none pr-6");
+const cellInputClass = gridCellInputClass;
+const cellNumberClass = gridCellNumberClass;
+const cellSelectClass = gridCellSelectClass;
 
 function todayIst(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
@@ -214,7 +218,7 @@ function InquiryEditableRow({
       <td className="p-1.5">
         <input
           type="date"
-          className={cellInputClass}
+          className={cellNumberClass}
           value={date}
           disabled={!editable}
           onChange={(e) => {
@@ -229,7 +233,7 @@ function InquiryEditableRow({
             <input
               type="tel"
               inputMode="tel"
-              className={cn(cellInputClass, "min-w-0 flex-1 font-medium tabular-nums")}
+              className={cn(cellNumberClass, "min-w-0 flex-1")}
               value={mobile}
               disabled={!editable}
               placeholder="Mobile number"
@@ -487,7 +491,7 @@ function NewInquiryRow({
       <td className="p-1.5">
         <input
           type="date"
-          className={cellInputClass}
+          className={cellNumberClass}
           value={date}
           onChange={(e) => setDate(e.target.value)}
         />
@@ -496,7 +500,7 @@ function NewInquiryRow({
         <input
           type="tel"
           inputMode="tel"
-          className={cn(cellInputClass, "font-medium tabular-nums")}
+          className={cellNumberClass}
           value={mobile}
           placeholder="Mobile number *"
           onChange={(e) => setMobile(e.target.value)}

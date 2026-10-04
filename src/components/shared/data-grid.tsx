@@ -8,6 +8,12 @@ export type GridSaveState = "idle" | "saving" | "saved" | "error";
 export const gridCellInputClass =
   "h-9 w-full min-w-[6.5rem] rounded-md border border-transparent bg-transparent px-2 text-sm outline-none transition-colors hover:border-border focus:border-ring focus:bg-background focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 
+/** Slightly smaller type for dates, mobiles, and other numeric grid values. */
+export const gridCellNumberClass = cn(
+  gridCellInputClass,
+  "text-xs tabular-nums font-normal tracking-tight",
+);
+
 export const gridCellSelectClass = cn(
   gridCellInputClass,
   "appearance-none pr-6",

@@ -18,6 +18,7 @@ export async function GET(request: Request) {
       customerId: url.searchParams.get("customerId") ?? "",
       customerType: url.searchParams.get("customerType") ?? "all",
       linked: url.searchParams.get("linked") ?? "all",
+      status: url.searchParams.get("status") ?? "open",
       page: 1,
       pageSize: 100,
     });
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
         "Mobile",
         "Customer Type",
         "Linked Inquiry",
+        "Status",
         "Notes",
         "Created By",
       ],
@@ -48,6 +50,7 @@ export async function GET(request: Request) {
                 : ""
             }`
           : "",
+        followup.completed_at ? "Completed" : "Open",
         followup.notes ?? "",
         followup.created_by_profile?.display_name ?? "",
       ]),

@@ -11,6 +11,7 @@ export function FollowupsPagination({
   customerId,
   customerType,
   linked,
+  status,
 }: {
   page: number;
   pageSize: number;
@@ -21,6 +22,7 @@ export function FollowupsPagination({
   customerId: string;
   customerType: string;
   linked: string;
+  status: string;
 }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -34,6 +36,7 @@ export function FollowupsPagination({
       params.set("customerType", customerType);
     }
     if (linked && linked !== "all") params.set("linked", linked);
+    if (status && status !== "open") params.set("status", status);
     if (nextPage > 1) params.set("page", String(nextPage));
     const qs = params.toString();
     return qs ? `/follow-ups?${qs}` : "/follow-ups";

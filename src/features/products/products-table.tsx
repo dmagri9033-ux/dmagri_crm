@@ -122,7 +122,7 @@ function ProductRow({
           <option value="false">Inactive</option>
         </select>
       </td>
-      <td className="p-1.5 text-xs text-muted-foreground whitespace-nowrap">
+      <td className="p-1.5 text-xs tabular-nums text-muted-foreground whitespace-nowrap">
         {formatGridDate(product.created_at)}
       </td>
       <td className="p-1.5">

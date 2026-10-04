@@ -6,27 +6,24 @@ import {
   useEffect,
   useRef,
   useState,
-  useTransition,
 } from "react";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import {
-  createFollowupGridRowAction,
   loadFollowupsGridAction,
   patchFollowupFieldAction,
 } from "@/actions/followups";
 import {
   gridCellInputClass,
+  gridCellNumberClass,
   gridCellSelectClass,
   GridSaveIndicator,
-  todayIstDate,
   type GridSaveState,
 } from "@/components/shared/data-grid";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
-import { DeleteFollowupButton } from "@/features/follow-ups/delete-followup-button";
 import type { FollowupInquiryOption } from "@/features/follow-ups/followup-form";
+import { FollowupStatusActions } from "@/features/follow-ups/followup-status-actions";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
-import type { Customer } from "@/lib/db/customers";
 import type { FollowupWithRelations } from "@/lib/db/followups";
 import type { FollowupFilterInput } from "@/validations/followup";
 import { cn } from "@/lib/utils";
@@ -66,15 +63,20 @@ function FollowupEditableRow({
   followup,
   inquiries,
   canUpdate,
+  hideOnComplete,
+  hideOnReopen,
   onUpdated,
-  onDeleted,
+  onRemoved,
 }: {
   followup: FollowupWithRelations;
   inquiries: FollowupInquiryOption[];
   canUpdate: boolean;
+  hideOnComplete: boolean;
+  hideOnReopen: boolean;
   onUpdated: (followup: FollowupWithRelations) => void;
-  onDeleted: (id: string) => void;
+  onRemoved: (id: string) => void;
 }) {
+  const isCompleted = Boolean(followup.completed_at);
   const [saveState, setSaveState] = useState<GridSaveState>("idle");
   const [error, setError] = useState<string>();
   const [date, setDate] = useState(followup.followup_date);
@@ -104,7 +106,7 @@ function FollowupEditableRow({
       field: "followup_date" | "notes" | "mobile" | "inquiry_id",
       value: string,
     ) => {
-      if (!canUpdate) return;
+      if (!canUpdate || isCompleted) return;
       setSaveState("saving");
       setError(undefined);
       const result = await patchFollowupFieldAction({
@@ -123,6 +125,8 @@ function FollowupEditableRow({
           setNotes(followup.notes);
           notesDirtyRef.current = false;
         }
+        if (field === "followup_date") setDate(followup.followup_date);
+        if (field === "inquiry_id") setInquiryId(followup.inquiry_id ?? "");
         return;
       }
       if (field === "mobile") mobileDirtyRef.current = false;
@@ -132,7 +136,7 @@ function FollowupEditableRow({
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
       savedTimerRef.current = setTimeout(() => setSaveState("idle"), 1200);
     },
-    [canUpdate, followup, onUpdated],
+    [canUpdate, followup, isCompleted, onUpdated],
   );
 
   function scheduleMobileSave(value: string) {
@@ -147,17 +151,16 @@ function FollowupEditableRow({
     followup.inquiry_id,
     inquiries,
   );
-
-  const mobileLabel = displayMobile(followup) || "this follow-up";
+  const editable = canUpdate && !isCompleted;
 
   return (
     <tr className="border-t odd:bg-muted/20">
       <td className="p-1.5">
         <input
           type="date"
-          className={gridCellInputClass}
+          className={gridCellNumberClass}
           value={date}
-          disabled={!canUpdate}
+          disabled={!editable}
           onChange={(e) => {
             setDate(e.target.value);
             void saveField("followup_date", e.target.value);
@@ -169,10 +172,10 @@ function FollowupEditableRow({
           <input
             type="tel"
             inputMode="tel"
-            className={cn(gridCellInputClass, "font-medium tabular-nums")}
+            className={gridCellNumberClass}
             value={mobile}
-            disabled={!canUpdate}
-            placeholder="Mobile number"
+            disabled={!editable}
+            placeholder="Mobile"
             onFocus={() => {
               editingFieldRef.current = "mobile";
             }}
@@ -183,7 +186,9 @@ function FollowupEditableRow({
             }}
             onBlur={() => {
               editingFieldRef.current = null;
-              if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
+              if (mobileDebounceRef.current) {
+                clearTimeout(mobileDebounceRef.current);
+              }
               if (mobile.trim() && mobile !== displayMobile(followup)) {
                 void saveField("mobile", mobile);
               } else {
@@ -196,7 +201,7 @@ function FollowupEditableRow({
               href={`/customers/${followup.customer_id}`}
               className="px-2 text-[10px] text-muted-foreground underline-offset-2 hover:underline"
             >
-              Open 360°
+              {followup.customers?.name ?? "Open 360°"}
             </Link>
           ) : null}
         </div>
@@ -206,10 +211,8 @@ function FollowupEditableRow({
           type="text"
           className={cn(gridCellInputClass, "min-w-[10rem]")}
           value={notes}
-          disabled={!canUpdate}
+          disabled={!editable}
           placeholder="Notes"
-          autoComplete="off"
-          spellCheck={false}
           onFocus={() => {
             editingFieldRef.current = "notes";
           }}
@@ -217,12 +220,9 @@ function FollowupEditableRow({
             notesDirtyRef.current = true;
             setNotes(e.target.value);
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.stopPropagation();
-          }}
           onBlur={() => {
             editingFieldRef.current = null;
-            if (notes.trim() !== followup.notes) {
+            if (notes !== followup.notes) {
               void saveField("notes", notes);
             } else {
               notesDirtyRef.current = false;
@@ -234,7 +234,7 @@ function FollowupEditableRow({
         <select
           className={gridCellSelectClass}
           value={inquiryId}
-          disabled={!canUpdate}
+          disabled={!editable}
           onChange={(e) => {
             setInquiryId(e.target.value);
             void saveField("inquiry_id", e.target.value);
@@ -251,174 +251,28 @@ function FollowupEditableRow({
       <td className="p-1.5">
         <div className="flex flex-col items-end gap-1">
           <GridSaveIndicator state={saveState} error={error} />
-          <DeleteFollowupButton
+          <FollowupStatusActions
             followupId={followup.id}
-            label={mobileLabel}
-            onDeleted={() => onDeleted(followup.id)}
+            completed={isCompleted}
+            onCompleted={() => {
+              if (hideOnComplete) onRemoved(followup.id);
+              else {
+                onUpdated({
+                  ...followup,
+                  completed_at: new Date().toISOString(),
+                });
+              }
+            }}
+            onReopened={() => {
+              if (hideOnReopen) onRemoved(followup.id);
+              else {
+                onUpdated({
+                  ...followup,
+                  completed_at: null,
+                });
+              }
+            }}
           />
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-function NewFollowupRow({
-  customers,
-  inquiries,
-  canCreate,
-  onCreated,
-}: {
-  customers: Customer[];
-  inquiries: FollowupInquiryOption[];
-  canCreate: boolean;
-  onCreated: (followup: FollowupWithRelations) => void;
-}) {
-  const [, startTransition] = useTransition();
-  const savingRef = useRef(false);
-  const [date, setDate] = useState(todayIstDate());
-  const [mobile, setMobile] = useState("");
-  const [notes, setNotes] = useState("");
-  const [inquiryId, setInquiryId] = useState("");
-  const [error, setError] = useState<string>();
-  const [status, setStatus] = useState<GridSaveState>("idle");
-
-  const normalizedMobile = normalizeMobile(mobile.trim());
-  const matchedCustomer = normalizedMobile
-    ? customers.find(
-        (c) =>
-          c.mobile_normalized === normalizedMobile ||
-          normalizeMobile(c.mobile) === normalizedMobile,
-      )
-    : undefined;
-  const filtered = matchedCustomer
-    ? inquiries.filter((i) => i.customer_id === matchedCustomer.id)
-    : [];
-  const inquiryOptions = filtered.length > 0 ? filtered : inquiries;
-
-  function reset() {
-    setDate(todayIstDate());
-    setMobile("");
-    setNotes("");
-    setInquiryId("");
-  }
-
-  async function saveNewRow() {
-    if (!canCreate || savingRef.current) return;
-    const trimmedMobile = mobile.trim();
-    const trimmedNotes = notes.trim();
-    if (!trimmedMobile) {
-      setError("Mobile number is required");
-      setStatus("error");
-      return;
-    }
-    if (!normalizeMobile(trimmedMobile)) {
-      setError("Enter a valid mobile number");
-      setStatus("error");
-      return;
-    }
-    if (!trimmedNotes) {
-      setError("Notes are required");
-      setStatus("error");
-      return;
-    }
-
-    savingRef.current = true;
-    setStatus("saving");
-    setError(undefined);
-    try {
-      const result = await createFollowupGridRowAction({
-        mobile: trimmedMobile,
-        followup_date: date,
-        inquiry_id: inquiryId || null,
-        notes: trimmedNotes,
-      });
-      if (result.error) {
-        setStatus("error");
-        setError(result.error);
-        return;
-      }
-      setStatus("saved");
-      reset();
-      if (result.followup) {
-        startTransition(() => onCreated(result.followup!));
-      }
-      setTimeout(() => setStatus("idle"), 1000);
-    } finally {
-      savingRef.current = false;
-    }
-  }
-
-  if (!canCreate) return null;
-
-  return (
-    <tr className="border-b border-dashed bg-primary/5">
-      <td className="p-1.5">
-        <input
-          type="date"
-          className={gridCellInputClass}
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
-      </td>
-      <td className="p-1.5">
-        <input
-          type="tel"
-          inputMode="tel"
-          className={cn(gridCellInputClass, "font-medium tabular-nums")}
-          value={mobile}
-          placeholder="Mobile number *"
-          onChange={(e) => setMobile(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              void saveNewRow();
-            }
-          }}
-        />
-      </td>
-      <td className="p-1.5">
-        <input
-          type="text"
-          className={cn(gridCellInputClass, "min-w-[8rem]")}
-          value={notes}
-          placeholder="Notes *"
-          onChange={(e) => setNotes(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              void saveNewRow();
-            }
-          }}
-        />
-      </td>
-      <td className="p-1.5">
-        <select
-          className={gridCellSelectClass}
-          value={inquiryId}
-          onChange={(e) => setInquiryId(e.target.value)}
-        >
-          <option value="">—</option>
-          {inquiryOptions.map((inquiry) => (
-            <option key={inquiry.id} value={inquiry.id}>
-              {inquiryLabel(inquiry)}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
-          <GridSaveIndicator state={status} error={error} />
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary dark:bg-primary/20 dark:hover:bg-primary/30"
-            disabled={status === "saving"}
-            onClick={() => void saveNewRow()}
-          >
-            <Plus className="size-3.5" />
-            Add
-          </Button>
         </div>
       </td>
     </tr>
@@ -427,18 +281,18 @@ function NewFollowupRow({
 
 export function FollowupsTable({
   followups: initialFollowups,
-  customers,
   inquiries,
   filters,
 }: {
   followups: FollowupWithRelations[];
-  customers: Customer[];
   inquiries: FollowupInquiryOption[];
   filters: Partial<FollowupFilterInput>;
 }) {
   const { can } = usePermissions();
   const canUpdate = can("followup.update");
-  const canCreate = can("followup.create");
+  const statusFilter = filters.status ?? "open";
+  const hideOnComplete = statusFilter === "open";
+  const hideOnReopen = statusFilter === "completed";
 
   const [rows, setRows] = useState(initialFollowups);
   const [loading, setLoading] = useState(true);
@@ -514,14 +368,6 @@ export function FollowupsTable({
             </tr>
           </thead>
           <tbody>
-            <NewFollowupRow
-              customers={customers}
-              inquiries={inquiries}
-              canCreate={canCreate}
-              onCreated={(followup) => {
-                upsertRow(followup);
-              }}
-            />
             {loading && rows.length === 0 ? (
               <tr>
                 <td
@@ -540,7 +386,12 @@ export function FollowupsTable({
                   colSpan={5}
                   className="px-4 py-8 text-center text-sm text-muted-foreground"
                 >
-                  No follow-ups yet. Use the row above to add the first one.
+                  No follow-ups match your filters.
+                  {statusFilter === "open"
+                    ? " Add follow-ups from an inquiry."
+                    : statusFilter === "completed"
+                      ? " Switch Status to Open to see active follow-ups."
+                      : ""}
                 </td>
               </tr>
             ) : (
@@ -550,8 +401,10 @@ export function FollowupsTable({
                   followup={followup}
                   inquiries={inquiries}
                   canUpdate={canUpdate}
+                  hideOnComplete={hideOnComplete}
+                  hideOnReopen={hideOnReopen}
                   onUpdated={upsertRow}
-                  onDeleted={removeRow}
+                  onRemoved={removeRow}
                 />
               ))
             )}

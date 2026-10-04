@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const followupStatusFilterValues = ["open", "completed", "all"] as const;
+
 export const followupFormSchema = z.object({
   followup_date: z.string().min(1, "Date is required"),
   customer_id: z.string().uuid("Select a customer"),
@@ -20,6 +22,7 @@ export const followupFilterSchema = z.object({
     .optional()
     .default("all"),
   linked: z.enum(["all", "yes", "no"]).optional().default("all"),
+  status: z.enum(followupStatusFilterValues).optional().default("open"),
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(5).max(100).optional().default(25),
 });

@@ -29,13 +29,14 @@ export default async function FollowUpsPage({
     customerType:
       typeof raw.customerType === "string" ? raw.customerType : "all",
     linked: typeof raw.linked === "string" ? raw.linked : "all",
+    status: typeof raw.status === "string" ? raw.status : "open",
     page: typeof raw.page === "string" ? raw.page : "1",
   });
 
   const [result, customersResult, inquiriesResult] = await Promise.all([
     listFollowups(filters),
     listCustomers({ pageSize: 100, page: 1 }),
-    listInquiries({ pageSize: 100, page: 1 }),
+    listInquiries({ pageSize: 100, page: 1, status: "all" }),
   ]);
 
   const inquiryOptions = inquiriesResult.inquiries.map((inquiry) => ({
@@ -56,6 +57,7 @@ export default async function FollowUpsPage({
           customerId={filters.customerId}
           customerType={filters.customerType}
           linked={filters.linked}
+          status={filters.status}
           customers={customersResult.customers}
           heading={
             <h2 className="text-2xl font-semibold tracking-tight">Follow-ups</h2>
@@ -71,6 +73,7 @@ export default async function FollowUpsPage({
                 customerId: filters.customerId,
                 customerType: filters.customerType,
                 linked: filters.linked,
+                status: filters.status,
               }}
             />
           }
@@ -79,7 +82,6 @@ export default async function FollowUpsPage({
 
       <FollowupsTable
         followups={result.followups}
-        customers={customersResult.customers}
         inquiries={inquiryOptions}
         filters={filters}
       />
@@ -94,6 +96,7 @@ export default async function FollowUpsPage({
         customerId={filters.customerId}
         customerType={filters.customerType}
         linked={filters.linked}
+        status={filters.status}
       />
     </div>
   );

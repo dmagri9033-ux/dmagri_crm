@@ -186,6 +186,117 @@ export async function deleteFollowupAction(
   }
 }
 
+export async function completeFollowupAction(
+  _prev: FollowupActionState,
+  formData: FormData,
+): Promise<FollowupActionState> {
+  try {
+    const ctx = await authorize("followup.update");
+    const followupId = String(formData.get("followupId") || "");
+    if (!followupId) return { error: "Missing follow-up id" };
+
+    const existing = await getFollowupById(followupId);
+    if (!existing) return { error: "Follow-up not found" };
+    if (existing.completed_at) {
+      return { success: "Follow-up already completed.", followupId };
+    }
+
+    const supabase = await createClient();
+    const completedAt = new Date().toISOString();
+    const { error } = await supabase
+      .from("followups")
+      .update({ completed_at: completedAt })
+      .eq("id", followupId)
+      .is("deleted_at", null);
+
+    if (error) throw new Error(error.message);
+
+    await logActivity({
+      actorId: ctx.userId,
+      action: "FOLLOWUP_COMPLETED",
+      module: "followups",
+      entityType: "followup",
+      entityId: followupId,
+      customerId: existing.customer_id,
+      metadata: existing.inquiry_id ? { inquiryId: existing.inquiry_id } : {},
+    });
+
+    // Completing a follow-up also completes its linked inquiry (if any).
+    if (existing.inquiry_id) {
+      const { data: inquiry, error: inquiryLookupError } = await supabase
+        .from("inquiries")
+        .select("id, customer_id, completed_at")
+        .eq("id", existing.inquiry_id)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (inquiryLookupError) throw new Error(inquiryLookupError.message);
+
+      if (inquiry && !inquiry.completed_at) {
+        const { error: inquiryError } = await supabase
+          .from("inquiries")
+          .update({ completed_at: completedAt })
+          .eq("id", inquiry.id)
+          .is("deleted_at", null);
+
+        if (inquiryError) throw new Error(inquiryError.message);
+
+        await logActivity({
+          actorId: ctx.userId,
+          action: "INQUIRY_COMPLETED",
+          module: "inquiries",
+          entityType: "inquiry",
+          entityId: inquiry.id,
+          customerId: inquiry.customer_id,
+          metadata: { via: "followup_complete", followupId },
+        });
+      }
+    }
+
+    revalidateFollowupPaths(existing.customer_id, existing.inquiry_id);
+    return { success: "Follow-up completed.", followupId };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+export async function reopenFollowupAction(
+  _prev: FollowupActionState,
+  formData: FormData,
+): Promise<FollowupActionState> {
+  try {
+    const ctx = await authorize("followup.update");
+    const followupId = String(formData.get("followupId") || "");
+    if (!followupId) return { error: "Missing follow-up id" };
+
+    const existing = await getFollowupById(followupId);
+    if (!existing) return { error: "Follow-up not found" };
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("followups")
+      .update({ completed_at: null })
+      .eq("id", followupId)
+      .is("deleted_at", null);
+
+    if (error) throw new Error(error.message);
+
+    await logActivity({
+      actorId: ctx.userId,
+      action: "FOLLOWUP_REOPENED",
+      module: "followups",
+      entityType: "followup",
+      entityId: followupId,
+      customerId: existing.customer_id,
+    });
+
+    revalidateFollowupPaths(existing.customer_id, existing.inquiry_id);
+    return { success: "Follow-up reopened.", followupId };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
 function todayIst(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
@@ -279,6 +390,9 @@ export async function patchFollowupFieldAction(input: {
     const ctx = await authorize("followup.update");
     const existing = await getFollowupById(input.followupId);
     if (!existing) return { error: "Follow-up not found" };
+    if (existing.completed_at) {
+      return { error: "Completed follow-ups cannot be edited. Reopen first." };
+    }
 
     const supabase = await createClient();
     let customerId = existing.customer_id;

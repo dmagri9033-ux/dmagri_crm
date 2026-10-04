@@ -126,6 +126,12 @@ export async function listFollowups(
     query = query.is("inquiry_id", null);
   }
 
+  if (filters.status === "open") {
+    query = query.is("completed_at", null);
+  } else if (filters.status === "completed") {
+    query = query.not("completed_at", "is", null);
+  }
+
   if (hideAdminCreated) query = query.or(hideAdminCreated);
 
   const from = (filters.page - 1) * filters.pageSize;

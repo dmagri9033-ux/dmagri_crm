@@ -29,9 +29,9 @@ export function ActivityTable({ logs }: { logs: ActivityLogWithRelations[] }) {
         <tbody>
           {logs.map((log) => (
             <tr key={log.id} className="border-t align-top">
-              <td className="px-4 py-3 whitespace-nowrap">
+              <td className="px-4 py-3 whitespace-nowrap text-xs tabular-nums">
                 <div>{formatIstDateTime(log.created_at)}</div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground">
                   {formatRelativeTime(log.created_at)}
                 </p>
               </td>

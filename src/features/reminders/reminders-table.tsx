@@ -17,6 +17,7 @@ import {
 import {
   GridSaveIndicator,
   gridCellInputClass,
+  gridCellNumberClass,
   gridCellSelectClass,
   type GridSaveState,
 } from "@/components/shared/data-grid";
@@ -179,7 +180,7 @@ function ReminderEditableRow({
       <td className="p-1.5">
         <input
           type="datetime-local"
-          className={cn(gridCellInputClass, "min-w-[11rem] tabular-nums")}
+          className={cn(gridCellNumberClass, "min-w-[11rem]")}
           value={whenLocal}
           disabled={!canUpdate}
           onChange={(e) => {
@@ -217,7 +218,7 @@ function ReminderEditableRow({
           <input
             type="tel"
             inputMode="tel"
-            className={cn(gridCellInputClass, "font-medium tabular-nums")}
+            className={gridCellNumberClass}
             value={mobile}
             disabled={!canUpdate}
             placeholder="Mobile"
@@ -403,7 +404,7 @@ function NewReminderRow({
       <td className="p-1.5">
         <input
           type="datetime-local"
-          className={cn(gridCellInputClass, "min-w-[11rem] tabular-nums")}
+          className={cn(gridCellNumberClass, "min-w-[11rem]")}
           value={whenLocal}
           onChange={(e) => setWhenLocal(e.target.value)}
         />
@@ -427,7 +428,7 @@ function NewReminderRow({
         <input
           type="tel"
           inputMode="tel"
-          className={cn(gridCellInputClass, "font-medium tabular-nums")}
+          className={gridCellNumberClass}
           value={mobile}
           placeholder="Mobile number *"
           onChange={(e) => setMobile(e.target.value)}

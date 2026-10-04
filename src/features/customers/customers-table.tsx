@@ -11,6 +11,7 @@ import {
 import {
   GridSaveIndicator,
   gridCellInputClass,
+  gridCellNumberClass,
   gridCellSelectClass,
   type GridSaveState,
 } from "@/components/shared/data-grid";
@@ -188,7 +189,7 @@ function CustomerEditableRow({
           <input
             type="tel"
             inputMode="tel"
-            className={cn(gridCellInputClass, "min-w-0 flex-1 tabular-nums")}
+            className={cn(gridCellNumberClass, "min-w-0 flex-1")}
             value={mobile}
             disabled={!canUpdate}
             placeholder="Mobile"
@@ -406,7 +407,7 @@ function NewCustomerRow({
         <input
           type="tel"
           inputMode="tel"
-          className={cn(gridCellInputClass, "tabular-nums font-medium")}
+          className={gridCellNumberClass}
           value={mobile}
           placeholder="Mobile number *"
           onChange={(e) => setMobile(e.target.value)}
