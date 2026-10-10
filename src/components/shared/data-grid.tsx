@@ -5,19 +5,44 @@ import { cn } from "@/lib/utils";
 
 export type GridSaveState = "idle" | "saving" | "saved" | "error";
 
+/** Compact grid inputs — denser rows across list tables. */
 export const gridCellInputClass =
-  "h-9 w-full min-w-[6.5rem] rounded-md border border-transparent bg-transparent px-2 text-sm outline-none transition-colors hover:border-border focus:border-ring focus:bg-background focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
+  "h-7 w-full min-w-[4.5rem] rounded-md border border-transparent bg-transparent px-1.5 text-xs outline-none transition-colors hover:border-border focus:border-ring focus:bg-background focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60";
 
-/** Slightly smaller type for dates, mobiles, and other numeric grid values. */
+/** Slightly tighter type for dates and other numeric grid values. */
 export const gridCellNumberClass = cn(
   gridCellInputClass,
-  "text-xs tabular-nums font-normal tracking-tight",
+  "tabular-nums font-normal tracking-tight",
+);
+
+/** Mobile / Mo No. fields — blue so numbers stand out at a glance. */
+export const gridCellMobileClass = cn(
+  gridCellNumberClass,
+  "font-medium text-blue-700 placeholder:text-blue-700/40 focus:text-blue-800 dark:text-blue-300 dark:placeholder:text-blue-300/40 dark:focus:text-blue-200",
 );
 
 export const gridCellSelectClass = cn(
   gridCellInputClass,
   "appearance-none pr-6",
 );
+
+export const gridCellPad = "p-1";
+
+export const gridTableClass =
+  "w-full border-collapse text-xs";
+
+export const gridHeaderRowClass =
+  "bg-muted/70 text-left text-[11px] uppercase tracking-wide text-muted-foreground";
+
+export const gridHeaderCellClass = "px-1.5 py-1.5 font-semibold";
+
+/** Data rows — soft sky tint (same as former hover). */
+export const gridDataRowClass =
+  "border-t bg-sky-50/90 dark:bg-sky-950/25";
+
+/** New / add-row — white so it stands apart from tinted data rows. */
+export const gridAddRowClass =
+  "border-b border-dashed border-border bg-white dark:bg-background";
 
 export function GridSaveIndicator({
   state,

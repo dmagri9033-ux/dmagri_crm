@@ -9,6 +9,7 @@ import {
   Shield,
   UserCog,
   ScrollText,
+  LayoutTemplate,
 } from "lucide-react";
 import type { PermissionCode } from "@/lib/rbac/permissions";
 
@@ -38,18 +39,18 @@ export const mainNavItems: NavItem[] = [
     phase: 8,
   },
   {
+    title: "Follow-ups",
+    href: "/follow-ups",
+    icon: PhoneForwarded,
+    permission: "followup.view",
+    phase: 9,
+  },
+  {
     title: "Reminders",
     href: "/reminders",
     icon: Bell,
     permission: "reminder.view",
     phase: 10,
-  },
-  {
-    title: "Products",
-    href: "/products",
-    icon: Package,
-    permission: "product.view",
-    phase: 5,
   },
   {
     title: "Customers",
@@ -59,11 +60,18 @@ export const mainNavItems: NavItem[] = [
     phase: 6,
   },
   {
-    title: "Follow-ups",
-    href: "/follow-ups",
-    icon: PhoneForwarded,
-    permission: "followup.view",
-    phase: 9,
+    title: "Products",
+    href: "/products",
+    icon: Package,
+    permission: "product.view",
+    phase: 5,
+  },
+  {
+    title: "Templates",
+    href: "/templates",
+    icon: LayoutTemplate,
+    permission: "template.view",
+    phase: 11,
   },
   {
     title: "Activity",

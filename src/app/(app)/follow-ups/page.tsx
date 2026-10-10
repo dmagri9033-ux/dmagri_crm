@@ -48,7 +48,7 @@ export default async function FollowUpsPage({
   }));
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
       <Suspense fallback={null}>
         <FollowupFilters
           search={filters.search}
@@ -60,7 +60,7 @@ export default async function FollowUpsPage({
           status={filters.status}
           customers={customersResult.customers}
           heading={
-            <h2 className="text-2xl font-semibold tracking-tight">Follow-ups</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Follow-ups</h2>
           }
           actions={
             <ExportExcelButton

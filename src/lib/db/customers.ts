@@ -53,16 +53,19 @@ export async function listCustomers(
     .is("deleted_at", null);
 
   if (filters.search) {
-    const normalizedSearch = normalizeMobile(filters.search);
+    const q = filters.search.trim();
+    const digits = q.replace(/\D/g, "");
+    const normalizedSearch = normalizeMobile(q);
+    const parts = [`name.ilike.%${q}%`, `mobile.ilike.%${q}%`];
     if (normalizedSearch) {
-      query = query.or(
-        `name.ilike.%${filters.search}%,mobile.ilike.%${filters.search}%,mobile_normalized.eq.${normalizedSearch}`,
-      );
-    } else {
-      query = query.or(
-        `name.ilike.%${filters.search}%,mobile.ilike.%${filters.search}%`,
-      );
+      parts.push(`mobile_normalized.eq.${normalizedSearch}`);
     }
+    // Partial number typing (e.g. last 5–9 digits) against normalized storage.
+    if (digits.length >= 3 && digits.length < 10) {
+      parts.push(`mobile_normalized.ilike.%${digits}%`);
+      parts.push(`mobile.ilike.%${digits}%`);
+    }
+    query = query.or(parts.join(","));
   }
 
   if (filters.productId) {

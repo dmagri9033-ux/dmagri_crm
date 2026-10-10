@@ -8,7 +8,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { Eye, Loader2, Plus } from "lucide-react";
 import {
   createReminderGridRowAction,
   loadRemindersGridAction,
@@ -17,10 +17,19 @@ import {
 import {
   GridSaveIndicator,
   gridCellInputClass,
+  gridCellMobileClass,
   gridCellNumberClass,
+  gridAddRowClass,
+  gridCellPad,
   gridCellSelectClass,
+  gridDataRowClass,
+  gridHeaderCellClass,
+  gridHeaderRowClass,
+  gridTableClass,
   type GridSaveState,
 } from "@/components/shared/data-grid";
+import { CopyMobileButton } from "@/components/shared/copy-mobile-button";
+import { WhatsAppMessageButton } from "@/components/shared/whatsapp-message-button";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -176,8 +185,8 @@ function ReminderEditableRow({
   }
 
   return (
-    <tr className="border-t odd:bg-muted/20">
-      <td className="p-1.5">
+    <tr className={gridDataRowClass}>
+      <td className={gridCellPad}>
         <input
           type="datetime-local"
           className={cn(gridCellNumberClass, "min-w-[11rem]")}
@@ -189,7 +198,7 @@ function ReminderEditableRow({
           }}
         />
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <input
           type="text"
           className={cn(gridCellInputClass, "min-w-[10rem] font-medium")}
@@ -213,12 +222,13 @@ function ReminderEditableRow({
           }}
         />
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col gap-0.5">
+      <td className={gridCellPad}>
+        <div className="flex items-center gap-0.5">
+          <CopyMobileButton mobile={mobile} />
           <input
             type="tel"
             inputMode="tel"
-            className={gridCellNumberClass}
+            className={cn(gridCellMobileClass, "min-w-0 flex-1")}
             value={mobile}
             disabled={!canUpdate}
             placeholder="Mobile"
@@ -242,20 +252,17 @@ function ReminderEditableRow({
               }
             }}
           />
-          {reminder.customer_id ? (
-            <Link
-              href={`/customers/${reminder.customer_id}`}
-              className="px-2 text-[10px] text-muted-foreground underline-offset-2 hover:underline"
-            >
-              {reminder.customers?.name ?? "Open 360°"}
-            </Link>
-          ) : null}
+          <WhatsAppMessageButton
+            mobile={mobile}
+            customerName={reminder.customers?.name || undefined}
+            customerId={reminder.customer_id ?? undefined}
+          />
         </div>
       </td>
-      <td className="p-1.5 text-sm text-muted-foreground">
+      <td className={cn(gridCellPad, "text-muted-foreground")}>
         {reminder.product_name || "—"}
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={gridCellSelectClass}
           value={assigneeId}
@@ -272,7 +279,7 @@ function ReminderEditableRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <input
           type="text"
           className={cn(gridCellInputClass, "min-w-[10rem]")}
@@ -303,7 +310,7 @@ function ReminderEditableRow({
           }}
         />
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <div className="flex flex-wrap gap-1">
           {statusBadge(reminder.ui_status)}
           {reminder.actively_snoozed ? (
@@ -311,15 +318,27 @@ function ReminderEditableRow({
           ) : null}
         </div>
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
+      <td className={gridCellPad}>
+        <div className="flex items-center justify-end gap-0.5">
           <GridSaveIndicator state={saveState} error={error} />
-          <div className="flex flex-wrap justify-end gap-1">
-            <ReminderStatusActions
-              reminder={reminder}
-              onSuccess={onReload}
-            />
-          </div>
+          <ReminderStatusActions
+            reminder={reminder}
+            onSuccess={onReload}
+          />
+          {reminder.customer_id ? (
+            <Button
+              render={<Link href={`/customers/${reminder.customer_id}`} />}
+              nativeButton={false}
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              className="bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 hover:text-sky-800 dark:bg-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/30 dark:hover:text-sky-200"
+              title="Open 360°"
+              aria-label="Open 360°"
+            >
+              <Eye className="size-3.5" />
+            </Button>
+          ) : null}
         </div>
       </td>
     </tr>
@@ -400,8 +419,8 @@ function NewReminderRow({
   if (!canCreate) return null;
 
   return (
-    <tr className="border-b border-dashed bg-primary/5">
-      <td className="p-1.5">
+    <tr className={gridAddRowClass}>
+      <td className={gridCellPad}>
         <input
           type="datetime-local"
           className={cn(gridCellNumberClass, "min-w-[11rem]")}
@@ -409,7 +428,7 @@ function NewReminderRow({
           onChange={(e) => setWhenLocal(e.target.value)}
         />
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <input
           type="text"
           className={cn(gridCellInputClass, "min-w-[10rem] font-medium")}
@@ -424,24 +443,28 @@ function NewReminderRow({
           }}
         />
       </td>
-      <td className="p-1.5">
-        <input
-          type="tel"
-          inputMode="tel"
-          className={gridCellNumberClass}
-          value={mobile}
-          placeholder="Mobile number *"
-          onChange={(e) => setMobile(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              void saveNewRow();
-            }
-          }}
-        />
+      <td className={gridCellPad}>
+        <div className="flex items-center gap-0.5">
+          <CopyMobileButton mobile={mobile} />
+          <input
+            type="tel"
+            inputMode="tel"
+            className={cn(gridCellMobileClass, "min-w-0 flex-1")}
+            value={mobile}
+            placeholder="Mobile number *"
+            onChange={(e) => setMobile(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void saveNewRow();
+              }
+            }}
+          />
+          <WhatsAppMessageButton mobile={mobile} />
+        </div>
       </td>
-      <td className="p-1.5 text-xs text-muted-foreground">—</td>
-      <td className="p-1.5">
+      <td className={cn(gridCellPad, "text-muted-foreground")}>—</td>
+      <td className={gridCellPad}>
         <select
           className={gridCellSelectClass}
           value={assigneeId}
@@ -454,7 +477,7 @@ function NewReminderRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <input
           type="text"
           className={cn(gridCellInputClass, "min-w-[8rem]")}
@@ -463,20 +486,21 @@ function NewReminderRow({
           onChange={(e) => setNotes(e.target.value)}
         />
       </td>
-      <td className="p-1.5 text-xs text-muted-foreground">—</td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
+      <td className={cn(gridCellPad, "text-muted-foreground")}>—</td>
+      <td className={gridCellPad}>
+        <div className="flex items-center justify-end gap-0.5">
           <GridSaveIndicator state={pending ? "saving" : status} error={error} />
           <Button
             type="button"
-            size="sm"
+            size="icon-sm"
             variant="ghost"
             className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary dark:bg-primary/20 dark:hover:bg-primary/30"
             disabled={pending}
             onClick={() => void saveNewRow()}
+            title="Add"
+            aria-label="Add"
           >
             <Plus className="size-3.5" />
-            Add
           </Button>
         </div>
       </td>
@@ -532,42 +556,25 @@ export function RemindersTable({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={loading}
-          onClick={() => void reload()}
-        >
-          {loading ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <RefreshCw className="size-3.5" />
-          )}
-          Refresh
-        </Button>
-      </div>
-
+    <div className="space-y-1.5">
       {loadError ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           Failed to load reminders: {loadError}
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border">
-        <table className="w-full min-w-[1180px] border-collapse text-sm">
+      <div className="overflow-x-auto rounded-lg border">
+        <table className={cn(gridTableClass, "min-w-[1180px]")}>
           <thead>
-            <tr className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="px-2.5 py-2.5 font-semibold">When</th>
-              <th className="px-2.5 py-2.5 font-semibold">Title</th>
-              <th className="px-2.5 py-2.5 font-semibold">Mo No.</th>
-              <th className="px-2.5 py-2.5 font-semibold">Product</th>
-              <th className="px-2.5 py-2.5 font-semibold">Assignee</th>
-              <th className="px-2.5 py-2.5 font-semibold">Notes</th>
-              <th className="px-2.5 py-2.5 font-semibold">Status</th>
-              <th className="px-2.5 py-2.5 text-right font-semibold">Actions</th>
+            <tr className={gridHeaderRowClass}>
+              <th className={gridHeaderCellClass}>When</th>
+              <th className={gridHeaderCellClass}>Title</th>
+              <th className={gridHeaderCellClass}>Mo No.</th>
+              <th className={gridHeaderCellClass}>Product</th>
+              <th className={gridHeaderCellClass}>Assignee</th>
+              <th className={gridHeaderCellClass}>Notes</th>
+              <th className={gridHeaderCellClass}>Status</th>
+              <th className={cn(gridHeaderCellClass, "text-right")}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -583,10 +590,10 @@ export function RemindersTable({
               <tr>
                 <td
                   colSpan={8}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" />
+                    <Loader2 className="size-3.5 animate-spin" />
                     Loading reminders…
                   </span>
                 </td>
@@ -595,7 +602,7 @@ export function RemindersTable({
               <tr>
                 <td
                   colSpan={8}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   No reminders match your filters. Use the row above to add one.
                 </td>

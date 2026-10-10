@@ -432,6 +432,7 @@ export async function patchInquiryFieldAction(input: {
   field:
     | "inquiry_date"
     | "mobile"
+    | "customer_name"
     | "customer_type"
     | "product_id"
     | "product_purchased"
@@ -462,6 +463,19 @@ export async function patchInquiryFieldAction(input: {
     if (input.field === "inquiry_date") {
       const date = input.value.trim() || existing.inquiry_date;
       patch.inquiry_date = date;
+    } else if (input.field === "customer_name") {
+      const name = input.value.trim();
+      if (!name) return { error: "Customer name is required" };
+      if (name.length > 120) return { error: "Name is too long" };
+
+      const { error: customerError } = await supabase
+        .from("customers")
+        .update({ name })
+        .eq("id", existing.customer_id)
+        .is("deleted_at", null);
+      if (customerError) throw new Error(customerError.message);
+
+      patch.customer_name_snapshot = name;
     } else if (input.field === "mobile") {
       const { customerId: nextId, created } = await resolveCustomerForInquiry({
         userId: ctx.userId,
@@ -594,6 +608,7 @@ export async function loadInquiriesGridAction(
 /** Create a new inquiry row from the grid (mobile required). */
 export async function createInquiryGridRowAction(input: {
   mobile: string;
+  customer_name?: string;
   inquiry_date?: string;
   customer_type?: string;
   product_id?: string;
@@ -608,11 +623,24 @@ export async function createInquiryGridRowAction(input: {
     }
 
     const typeRaw = (input.customer_type || "").trim();
+    const customerName = input.customer_name?.trim() || undefined;
     const { customerId, created } = await resolveCustomerForInquiry({
       userId: ctx.userId,
       mobile,
+      customerName,
       customerType: typeRaw || null,
     });
+
+    // If customer already existed and a name was typed, keep master + snapshot in sync.
+    if (!created && customerName) {
+      const supabase = await createClient();
+      const { error: nameError } = await supabase
+        .from("customers")
+        .update({ name: customerName })
+        .eq("id", customerId)
+        .is("deleted_at", null);
+      if (nameError) throw new Error(nameError.message);
+    }
 
     const productId = input.product_id?.trim() || null;
     const purchased = Boolean(input.product_purchased && productId);

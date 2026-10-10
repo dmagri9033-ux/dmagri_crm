@@ -39,7 +39,7 @@ export default async function InquiriesPage({
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
       <Suspense fallback={null}>
         <InquiryFilters
           search={filters.search}
@@ -51,7 +51,7 @@ export default async function InquiriesPage({
           status={filters.status}
           products={allProducts.products}
           heading={
-            <h2 className="text-2xl font-semibold tracking-tight">Inquiries</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Inquiries</h2>
           }
           actions={
             <ExcelToolbar

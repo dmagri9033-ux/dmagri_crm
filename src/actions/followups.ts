@@ -10,6 +10,12 @@ import {
   listFollowups,
   type FollowupWithRelations,
 } from "@/lib/db/followups";
+import { generateReminderNotifications } from "@/lib/notifications/generate-reminder-notifications";
+import {
+  completeReminderForFollowup,
+  reopenReminderForFollowup,
+  syncTodayFollowupsToReminders,
+} from "@/lib/reminders/sync-followups-to-reminders";
 import { authorize } from "@/lib/rbac/authorize";
 import { toActionError } from "@/lib/rbac/errors";
 import { createClient } from "@/lib/supabase/server";
@@ -27,6 +33,7 @@ export type FollowupActionState = {
 
 function revalidateFollowupPaths(customerId?: string, inquiryId?: string | null) {
   revalidatePath("/follow-ups");
+  revalidatePath("/reminders");
   if (customerId) {
     revalidatePath("/customers");
     revalidatePath(`/customers/${customerId}`);
@@ -34,6 +41,57 @@ function revalidateFollowupPaths(customerId?: string, inquiryId?: string | null)
   if (inquiryId) {
     revalidatePath("/inquiries");
   }
+}
+
+/** Push today's open follow-ups into reminders + bell notifications. */
+async function syncFollowupsIntoReminders() {
+  try {
+    await syncTodayFollowupsToReminders();
+    await generateReminderNotifications();
+  } catch (error) {
+    console.error("syncFollowupsIntoReminders failed:", error);
+  }
+}
+
+/** Close the linked inquiry so it leaves the Open Inquiries list. */
+async function completeInquiryForFollowupCreate(input: {
+  actorId: string;
+  followupId: string;
+  inquiryId: string;
+  customerId: string;
+}) {
+  const supabase = await createClient();
+  const completedAt = new Date().toISOString();
+  const { data: inquiry, error: inquiryLookupError } = await supabase
+    .from("inquiries")
+    .select("id, customer_id, completed_at")
+    .eq("id", input.inquiryId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (inquiryLookupError) throw new Error(inquiryLookupError.message);
+  if (!inquiry || inquiry.completed_at) return;
+  if (inquiry.customer_id !== input.customerId) {
+    throw new Error("Inquiry does not belong to this customer");
+  }
+
+  const { error: inquiryError } = await supabase
+    .from("inquiries")
+    .update({ completed_at: completedAt })
+    .eq("id", inquiry.id)
+    .is("deleted_at", null);
+
+  if (inquiryError) throw new Error(inquiryError.message);
+
+  await logActivity({
+    actorId: input.actorId,
+    action: "INQUIRY_COMPLETED",
+    module: "inquiries",
+    entityType: "inquiry",
+    entityId: inquiry.id,
+    customerId: inquiry.customer_id,
+    metadata: { via: "followup_create", followupId: input.followupId },
+  });
 }
 
 function parseFollowupForm(formData: FormData) {
@@ -76,6 +134,16 @@ export async function createFollowupAction(
       metadata: inquiryId ? { inquiryId } : {},
     });
 
+    if (inquiryId) {
+      await completeInquiryForFollowupCreate({
+        actorId: ctx.userId,
+        followupId,
+        inquiryId,
+        customerId: parsed.data.customer_id,
+      });
+    }
+
+    await syncFollowupsIntoReminders();
     revalidateFollowupPaths(parsed.data.customer_id, inquiryId);
     return { success: "Follow-up added.", followupId };
   } catch (error) {
@@ -138,6 +206,7 @@ export async function updateFollowupAction(
       customerId: parsed.data.customer_id,
     });
 
+    await syncFollowupsIntoReminders();
     revalidateFollowupPaths(parsed.data.customer_id, inquiryId);
     if (existing.customer_id !== parsed.data.customer_id) {
       revalidateFollowupPaths(existing.customer_id, existing.inquiry_id);
@@ -253,6 +322,12 @@ export async function completeFollowupAction(
       }
     }
 
+    try {
+      await completeReminderForFollowup(followupId);
+    } catch (error) {
+      console.error("completeReminderForFollowup failed:", error);
+    }
+
     revalidateFollowupPaths(existing.customer_id, existing.inquiry_id);
     return { success: "Follow-up completed.", followupId };
   } catch (error) {
@@ -289,6 +364,13 @@ export async function reopenFollowupAction(
       entityId: followupId,
       customerId: existing.customer_id,
     });
+
+    try {
+      await reopenReminderForFollowup(followupId);
+      await syncFollowupsIntoReminders();
+    } catch (error) {
+      console.error("reopenReminderForFollowup failed:", error);
+    }
 
     revalidateFollowupPaths(existing.customer_id, existing.inquiry_id);
     return { success: "Follow-up reopened.", followupId };
@@ -383,7 +465,13 @@ export async function loadFollowupsGridAction(
 
 export async function patchFollowupFieldAction(input: {
   followupId: string;
-  field: "followup_date" | "notes" | "mobile" | "customer_id" | "inquiry_id";
+  field:
+    | "followup_date"
+    | "notes"
+    | "mobile"
+    | "customer_name"
+    | "customer_id"
+    | "inquiry_id";
   value: string;
 }): Promise<FollowupPatchResult> {
   try {
@@ -414,6 +502,16 @@ export async function patchFollowupFieldAction(input: {
       const notes = input.value.trim();
       if (!notes) return { error: "Notes are required" };
       patch.notes = notes;
+    } else if (input.field === "customer_name") {
+      const name = input.value.trim();
+      if (!name) return { error: "Customer name is required" };
+      if (name.length > 120) return { error: "Name is too long" };
+      const { error: customerError } = await supabase
+        .from("customers")
+        .update({ name })
+        .eq("id", existing.customer_id)
+        .is("deleted_at", null);
+      if (customerError) throw new Error(customerError.message);
     } else if (input.field === "mobile") {
       const { customerId: nextId, created } = await resolveCustomerForFollowup({
         userId: ctx.userId,
@@ -470,13 +568,15 @@ export async function patchFollowupFieldAction(input: {
       return { error: "Unknown field" };
     }
 
-    const { error } = await supabase
-      .from("followups")
-      .update(patch)
-      .eq("id", input.followupId)
-      .is("deleted_at", null);
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase
+        .from("followups")
+        .update(patch)
+        .eq("id", input.followupId)
+        .is("deleted_at", null);
 
-    if (error) throw new Error(error.message);
+      if (error) throw new Error(error.message);
+    }
 
     await logActivity({
       actorId: ctx.userId,
@@ -487,6 +587,14 @@ export async function patchFollowupFieldAction(input: {
       customerId,
       metadata: { field: input.field, via: "grid" },
     });
+
+    if (
+      input.field === "followup_date" ||
+      input.field === "notes" ||
+      input.field === "customer_name"
+    ) {
+      await syncFollowupsIntoReminders();
+    }
 
     revalidateFollowupPaths(customerId, inquiryId);
     if (existing.customer_id !== customerId) {
@@ -554,6 +662,16 @@ export async function createFollowupGridRowAction(input: {
       metadata: { via: "grid", customerCreated, inquiryId: inquiryRaw },
     });
 
+    if (inquiryRaw) {
+      await completeInquiryForFollowupCreate({
+        actorId: ctx.userId,
+        followupId,
+        inquiryId: inquiryRaw,
+        customerId,
+      });
+    }
+
+    await syncFollowupsIntoReminders();
     revalidateFollowupPaths(customerId, inquiryRaw);
     const refreshed = await getFollowupById(followupId);
     return {

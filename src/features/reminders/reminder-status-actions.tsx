@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
+import { CheckCircle2, RotateCcw } from "lucide-react";
 import {
   completeReminderAction,
   reopenReminderAction,
@@ -15,20 +16,24 @@ import type { ReminderWithRelations } from "@/lib/db/reminders";
 function ActionButton({
   label,
   className,
+  icon,
 }: {
   label: string;
   className: string;
+  icon: React.ReactNode;
 }) {
   const { pending } = useFormStatus();
   return (
     <Button
       type="submit"
-      size="sm"
+      size="icon-sm"
       variant="ghost"
       className={className}
       disabled={pending}
+      title={pending ? "…" : label}
+      aria-label={pending ? "…" : label}
     >
-      {pending ? "…" : label}
+      {pending ? <span className="text-[10px]">…</span> : icon}
     </Button>
   );
 }
@@ -59,15 +64,17 @@ export function ReminderStatusActions({
 
   const isClosed =
     reminder.ui_status === "completed" || reminder.ui_status === "cancelled";
+  const error = completeState.error || reopenState.error;
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <>
       {!isClosed ? (
         <Can permission="reminder.complete">
           <form action={completeAction}>
             <input type="hidden" name="reminderId" value={reminder.id} />
             <ActionButton
               label="Complete"
+              icon={<CheckCircle2 className="size-3.5" />}
               className="bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/20 hover:text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-300 dark:hover:bg-emerald-500/30 dark:hover:text-emerald-200"
             />
           </form>
@@ -78,17 +85,15 @@ export function ReminderStatusActions({
             <input type="hidden" name="reminderId" value={reminder.id} />
             <ActionButton
               label="Reopen"
+              icon={<RotateCcw className="size-3.5" />}
               className="bg-amber-500/10 text-amber-900 hover:bg-amber-500/20 hover:text-amber-950 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30 dark:hover:text-amber-100"
             />
           </form>
         </Can>
       )}
-
-      {(completeState.error || reopenState.error) && (
-        <p className="w-full text-xs text-destructive">
-          {completeState.error || reopenState.error}
-        </p>
-      )}
-    </div>
+      {error ? (
+        <p className="max-w-[10rem] text-[10px] text-destructive">{error}</p>
+      ) : null}
+    </>
   );
 }

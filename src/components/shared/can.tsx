@@ -22,6 +22,6 @@ export function Can({ permission, any = false, children, fallback = null }: CanP
     ? canAny(Array.isArray(permission) ? permission : [permission])
     : can(permission);
 
-  if (!allowed) return <>{fallback}</>;
-  return <>{children}</>;
+  if (!allowed) return fallback;
+  return children;
 }

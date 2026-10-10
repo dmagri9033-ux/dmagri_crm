@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
+import { Trash2 } from "lucide-react";
 import { deleteCustomerAction, type CustomerActionState } from "@/actions/customers";
 import { Can } from "@/components/shared/can";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -11,8 +12,16 @@ import { Button } from "@/components/ui/button";
 function DeleteButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="sm" variant="destructive" disabled={pending}>
-      {pending ? "Deleting…" : "Delete"}
+    <Button
+      type="submit"
+      size="icon-sm"
+      variant="ghost"
+      className="bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive"
+      disabled={pending}
+      title={pending ? "Deleting…" : "Delete"}
+      aria-label={pending ? "Deleting…" : "Delete"}
+    >
+      <Trash2 className="size-3.5" />
     </Button>
   );
 }

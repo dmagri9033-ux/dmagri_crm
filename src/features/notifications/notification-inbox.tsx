@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useFormStatus } from "react-dom";
+import { AlertTriangle, BellRing, CalendarCheck2 } from "lucide-react";
 import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
@@ -10,7 +12,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatIstDateTime, formatRelativeTime } from "@/lib/datetime/ist";
-import type { Notification } from "@/lib/db/notifications";
+import type {
+  Notification,
+  ReminderAlertCounts,
+} from "@/lib/db/notifications";
 import { cn } from "@/lib/utils";
 
 function MarkAllButton() {
@@ -35,25 +40,62 @@ function kindLabel(kind: string) {
   }
 }
 
+function CountChip({
+  href,
+  label,
+  count,
+  icon,
+  className,
+}: {
+  href: string;
+  label: string;
+  count: number;
+  icon: React.ReactNode;
+  className: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex min-w-0 flex-1 flex-col gap-0.5 rounded-lg px-2.5 py-2 transition-colors",
+        className,
+      )}
+    >
+      <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide opacity-80">
+        {icon}
+        {label}
+      </span>
+      <span className="text-lg font-semibold tabular-nums leading-none">
+        {count > 99 ? "99+" : count}
+      </span>
+    </Link>
+  );
+}
+
 export function NotificationInbox({
   notifications: initialNotifications,
   unreadCount: initialUnread,
+  reminderCounts: initialCounts,
   onUnreadChange,
 }: {
   notifications: Notification[];
   unreadCount: number;
+  reminderCounts: ReminderAlertCounts;
   onUnreadChange?: (count: number) => void;
 }) {
   const [notifications, setNotifications] = useState(initialNotifications);
   const [unreadCount, setUnreadCount] = useState(initialUnread);
+  const [reminderCounts, setReminderCounts] = useState(initialCounts);
 
   useEffect(() => {
     setNotifications(initialNotifications);
     setUnreadCount(initialUnread);
-  }, [initialNotifications, initialUnread]);
+    setReminderCounts(initialCounts);
+  }, [initialNotifications, initialUnread, initialCounts]);
 
   function setUnread(next: number) {
     setUnreadCount(next);
+    setReminderCounts((c) => ({ ...c, unread: next }));
     onUnreadChange?.(next);
   }
 
@@ -99,21 +141,55 @@ export function NotificationInbox({
     }
   }
 
+  const attention =
+    reminderCounts.overdue + reminderCounts.today + reminderCounts.unread;
+
   return (
     <div className="flex w-full flex-col">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
-        <p className="text-xs font-medium text-muted-foreground">Notifications</p>
+        <div>
+          <p className="text-xs font-semibold tracking-tight">Reminders</p>
+          <p className="text-[10px] text-muted-foreground">
+            {attention > 0
+              ? `${attention} item${attention === 1 ? "" : "s"} need attention`
+              : "You're all caught up"}
+          </p>
+        </div>
         {unreadCount > 0 ? (
           <form action={markAll}>
             <MarkAllButton />
           </form>
         ) : null}
       </div>
-      <div className="max-h-80 overflow-y-auto border-t">
+
+      <div className="grid grid-cols-3 gap-1.5 px-3 pb-2">
+        <CountChip
+          href="/reminders?status=overdue"
+          label="Overdue"
+          count={reminderCounts.overdue}
+          icon={<AlertTriangle className="size-3" />}
+          className="bg-rose-500/10 text-rose-800 hover:bg-rose-500/15 dark:text-rose-200"
+        />
+        <CountChip
+          href="/reminders?status=today"
+          label="Today"
+          count={reminderCounts.today}
+          icon={<CalendarCheck2 className="size-3" />}
+          className="bg-amber-500/10 text-amber-900 hover:bg-amber-500/15 dark:text-amber-200"
+        />
+        <CountChip
+          href="/reminders"
+          label="Unread"
+          count={reminderCounts.unread}
+          icon={<BellRing className="size-3" />}
+          className="bg-sky-500/10 text-sky-900 hover:bg-sky-500/15 dark:text-sky-200"
+        />
+      </div>
+
+      <div className="max-h-72 overflow-y-auto border-t">
         {notifications.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-            No notifications yet. Reminder alerts appear for today and overdue
-            items.
+            No alerts for today yet. Today’s follow-ups and due reminders show up here.
           </p>
         ) : (
           <ul className="divide-y">
@@ -135,7 +211,16 @@ export function NotificationInbox({
                       )}
                     >
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px]",
+                            notification.kind === "reminder_overdue" &&
+                              "border-rose-300/60 bg-rose-500/10 text-rose-800 dark:text-rose-200",
+                            notification.kind === "reminder_today" &&
+                              "border-amber-300/60 bg-amber-500/10 text-amber-900 dark:text-amber-200",
+                          )}
+                        >
                           {kindLabel(notification.kind)}
                         </Badge>
                         {unread ? (

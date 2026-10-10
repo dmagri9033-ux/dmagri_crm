@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { Download, ExternalLink } from "lucide-react";
+import { loadWhatsAppTemplateOptionsAction } from "@/actions/templates";
 import { sendWhatsAppMessageAction } from "@/actions/whatsapp";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,13 +48,56 @@ export function WhatsAppMessageButton({
   const [message, setMessage] = useState(defaultMessage);
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
+  const [templateOptions, setTemplateOptions] = useState<
+    { id: string; name: string; content: string; imageUrl: string | null }[]
+  >([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
 
   const valid = Boolean(normalizeMobile(mobile));
+  const selectedTemplate = templateOptions.find(
+    (t) => t.id === selectedTemplateId,
+  );
+  const selectedImageUrl = selectedTemplate?.imageUrl ?? null;
+
+  useEffect(() => {
+    if (!open) return;
+    void loadWhatsAppTemplateOptionsAction().then((result) => {
+      if (result.templates) setTemplateOptions(result.templates);
+    });
+  }, [open]);
 
   function handleOpen() {
     setMessage(defaultMessage);
+    setSelectedTemplateId("");
     setError(undefined);
     setOpen(true);
+  }
+
+  function applyTemplate(templateId: string) {
+    setSelectedTemplateId(templateId);
+    if (!templateId) {
+      setMessage(defaultMessage);
+      return;
+    }
+    const picked = templateOptions.find((t) => t.id === templateId);
+    if (picked) setMessage(picked.content);
+  }
+
+  function openTemplateImage() {
+    if (!selectedImageUrl) return;
+    window.open(selectedImageUrl, "_blank", "noopener,noreferrer");
+  }
+
+  function downloadTemplateImage() {
+    if (!selectedImageUrl) return;
+    const link = document.createElement("a");
+    link.href = selectedImageUrl;
+    link.download = `${selectedTemplate?.name?.trim() || "whatsapp-template"}.jpg`;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
   function handleSend() {
@@ -73,6 +118,13 @@ export function WhatsAppMessageButton({
 
       if (result.openUrl) {
         window.open(result.openUrl, "_blank", "noopener,noreferrer");
+      }
+
+      // Small-team flow: wa.me sends text only — open image so staff can attach it in WhatsApp.
+      if (selectedImageUrl) {
+        window.setTimeout(() => {
+          window.open(selectedImageUrl, "_blank", "noopener,noreferrer");
+        }, 400);
       }
 
       setOpen(false);
@@ -102,26 +154,96 @@ export function WhatsAppMessageButton({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <WhatsAppIcon className="text-emerald-600" />
-              WhatsApp message
+        <DialogContent
+          className={cn(
+            "flex max-h-[min(92dvh,calc(100dvh-1rem))] w-[calc(100%-0.75rem)] max-w-lg flex-col gap-0 overflow-hidden p-0",
+            "top-[max(0.5rem,env(safe-area-inset-top,0px))] translate-y-0 sm:top-1/2 sm:max-h-[min(90dvh,40rem)] sm:-translate-y-1/2",
+          )}
+        >
+          <DialogHeader className="shrink-0 gap-1.5 border-b px-4 py-3 pr-11">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-sm">
+              <WhatsAppIcon className="shrink-0 text-emerald-600" />
+              <span className="truncate">WhatsApp message</span>
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="break-words text-xs sm:text-sm">
               {customerName ? (
                 <>
-                  To <span className="font-medium text-foreground">{customerName}</span>
+                  To{" "}
+                  <span className="font-medium text-foreground">{customerName}</span>
                   {" · "}
                 </>
               ) : null}
-              {mobile || "No mobile"}
+              <span className="tabular-nums">{mobile || "No mobile"}</span>
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3">
             {error ? (
               <p className="text-sm text-destructive">{error}</p>
+            ) : null}
+            {templateOptions.length > 0 ? (
+              <div className="space-y-2">
+                <Label htmlFor={`wa-tpl-${customerId ?? inquiryId ?? "new"}`}>
+                  Template
+                </Label>
+                <select
+                  id={`wa-tpl-${customerId ?? inquiryId ?? "new"}`}
+                  className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  value={selectedTemplateId}
+                  onChange={(e) => applyTemplate(e.target.value)}
+                >
+                  <option value="">Custom message</option>
+                  {templateOptions.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedImageUrl ? (
+                  <div className="overflow-hidden rounded-md border bg-muted/20">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={selectedImageUrl}
+                      alt=""
+                      className="max-h-[min(28vh,9rem)] w-full object-contain sm:max-h-36"
+                    />
+                    <div className="space-y-2 px-2.5 py-2">
+                      <ol className="list-decimal space-y-1 pl-4 text-[11px] leading-snug text-muted-foreground">
+                        <li>
+                          <span className="font-medium text-foreground">Send</span>{" "}
+                          opens WhatsApp with the text filled in.
+                        </li>
+                        <li>
+                          In WhatsApp, tap attach / paperclip and pick this image
+                          (image tab also opens after Send).
+                        </li>
+                      </ol>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1.5 text-xs"
+                          onClick={openTemplateImage}
+                        >
+                          <ExternalLink className="size-3.5" />
+                          Open image
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1.5 text-xs"
+                          onClick={downloadTemplateImage}
+                        >
+                          <Download className="size-3.5" />
+                          Download
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
             <div className="space-y-2">
               <Label htmlFor={`wa-msg-${customerId ?? inquiryId ?? "new"}`}>
@@ -129,30 +251,37 @@ export function WhatsAppMessageButton({
               </Label>
               <Textarea
                 id={`wa-msg-${customerId ?? inquiryId ?? "new"}`}
-                rows={5}
+                rows={4}
                 value={message}
                 placeholder="Type your message…"
+                className="max-h-[min(36vh,16rem)] min-h-[5.5rem] resize-y text-sm leading-relaxed"
                 onChange={(e) => setMessage(e.target.value)}
               />
             </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={pending}
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                className="bg-emerald-600 text-white hover:bg-emerald-700"
-                disabled={pending || !message.trim()}
-                onClick={handleSend}
-              >
-                {pending ? "Sending…" : "Send"}
-              </Button>
-            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-col-reverse gap-2 border-t bg-muted/30 px-4 py-3 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={pending}
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
+              disabled={pending || !message.trim()}
+              onClick={handleSend}
+            >
+              {pending
+                ? "Opening…"
+                : selectedImageUrl
+                  ? "Send text + open image"
+                  : "Send"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

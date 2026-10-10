@@ -7,18 +7,26 @@ import {
   useRef,
   useState,
 } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
 import {
   loadFollowupsGridAction,
   patchFollowupFieldAction,
 } from "@/actions/followups";
 import {
   gridCellInputClass,
+  gridCellMobileClass,
   gridCellNumberClass,
+  gridCellPad,
   gridCellSelectClass,
+  gridDataRowClass,
+  gridHeaderCellClass,
+  gridHeaderRowClass,
+  gridTableClass,
   GridSaveIndicator,
   type GridSaveState,
 } from "@/components/shared/data-grid";
+import { CopyMobileButton } from "@/components/shared/copy-mobile-button";
+import { WhatsAppMessageButton } from "@/components/shared/whatsapp-message-button";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
 import type { FollowupInquiryOption } from "@/features/follow-ups/followup-form";
@@ -38,6 +46,10 @@ function displayMobile(followup: FollowupWithRelations): string {
     return normalized.slice(2);
   }
   return raw.replace(/\D/g, "").slice(-10) || raw;
+}
+
+function displayCustomerName(followup: FollowupWithRelations): string {
+  return followup.customers?.name?.trim() || "";
 }
 
 function inquiryLabel(inquiry: FollowupInquiryOption): string {
@@ -80,19 +92,31 @@ function FollowupEditableRow({
   const [saveState, setSaveState] = useState<GridSaveState>("idle");
   const [error, setError] = useState<string>();
   const [date, setDate] = useState(followup.followup_date);
+  const [customerName, setCustomerName] = useState(() =>
+    displayCustomerName(followup),
+  );
   const [mobile, setMobile] = useState(() => displayMobile(followup));
   const [notes, setNotes] = useState(followup.notes);
   const [inquiryId, setInquiryId] = useState(followup.inquiry_id ?? "");
 
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const editingFieldRef = useRef<"mobile" | "notes" | null>(null);
+  const editingFieldRef = useRef<"mobile" | "notes" | "customer_name" | null>(
+    null,
+  );
   const mobileDirtyRef = useRef(false);
   const notesDirtyRef = useRef(false);
+  const nameDirtyRef = useRef(false);
 
   useEffect(() => {
     if (editingFieldRef.current !== "mobile" && !mobileDirtyRef.current) {
       setMobile(displayMobile(followup));
+    }
+    if (
+      editingFieldRef.current !== "customer_name" &&
+      !nameDirtyRef.current
+    ) {
+      setCustomerName(displayCustomerName(followup));
     }
     if (editingFieldRef.current !== "notes" && !notesDirtyRef.current) {
       setNotes(followup.notes);
@@ -103,7 +127,12 @@ function FollowupEditableRow({
 
   const saveField = useCallback(
     async (
-      field: "followup_date" | "notes" | "mobile" | "inquiry_id",
+      field:
+        | "followup_date"
+        | "notes"
+        | "mobile"
+        | "customer_name"
+        | "inquiry_id",
       value: string,
     ) => {
       if (!canUpdate || isCompleted) return;
@@ -121,6 +150,10 @@ function FollowupEditableRow({
           setMobile(displayMobile(followup));
           mobileDirtyRef.current = false;
         }
+        if (field === "customer_name") {
+          setCustomerName(displayCustomerName(followup));
+          nameDirtyRef.current = false;
+        }
         if (field === "notes") {
           setNotes(followup.notes);
           notesDirtyRef.current = false;
@@ -130,6 +163,7 @@ function FollowupEditableRow({
         return;
       }
       if (field === "mobile") mobileDirtyRef.current = false;
+      if (field === "customer_name") nameDirtyRef.current = false;
       if (field === "notes") notesDirtyRef.current = false;
       if (result.followup) onUpdated(result.followup);
       setSaveState("saved");
@@ -154,8 +188,8 @@ function FollowupEditableRow({
   const editable = canUpdate && !isCompleted;
 
   return (
-    <tr className="border-t odd:bg-muted/20">
-      <td className="p-1.5">
+    <tr className={gridDataRowClass}>
+      <td className={gridCellPad}>
         <input
           type="date"
           className={gridCellNumberClass}
@@ -167,12 +201,37 @@ function FollowupEditableRow({
           }}
         />
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col gap-0.5">
+      <td className={gridCellPad}>
+        <input
+          type="text"
+          className={cn(gridCellInputClass, "min-w-[7rem] font-medium")}
+          value={customerName}
+          disabled={!editable}
+          placeholder="Customer name"
+          onFocus={() => {
+            editingFieldRef.current = "customer_name";
+          }}
+          onChange={(e) => {
+            nameDirtyRef.current = true;
+            setCustomerName(e.target.value);
+          }}
+          onBlur={() => {
+            editingFieldRef.current = null;
+            if (customerName.trim() !== displayCustomerName(followup)) {
+              void saveField("customer_name", customerName);
+            } else {
+              nameDirtyRef.current = false;
+            }
+          }}
+        />
+      </td>
+      <td className={gridCellPad}>
+        <div className="flex items-center gap-0.5">
+          <CopyMobileButton mobile={mobile} />
           <input
             type="tel"
             inputMode="tel"
-            className={gridCellNumberClass}
+            className={cn(gridCellMobileClass, "min-w-0 flex-1")}
             value={mobile}
             disabled={!editable}
             placeholder="Mobile"
@@ -196,17 +255,14 @@ function FollowupEditableRow({
               }
             }}
           />
-          {followup.customer_id ? (
-            <Link
-              href={`/customers/${followup.customer_id}`}
-              className="px-2 text-[10px] text-muted-foreground underline-offset-2 hover:underline"
-            >
-              {followup.customers?.name ?? "Open 360°"}
-            </Link>
-          ) : null}
+          <WhatsAppMessageButton
+            mobile={mobile}
+            customerName={customerName || followup.customers?.name || undefined}
+            customerId={followup.customer_id}
+          />
         </div>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <input
           type="text"
           className={cn(gridCellInputClass, "min-w-[10rem]")}
@@ -230,7 +286,7 @@ function FollowupEditableRow({
           }}
         />
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={gridCellSelectClass}
           value={inquiryId}
@@ -248,8 +304,8 @@ function FollowupEditableRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
+      <td className={gridCellPad}>
+        <div className="flex items-center justify-end gap-0.5">
           <GridSaveIndicator state={saveState} error={error} />
           <FollowupStatusActions
             followupId={followup.id}
@@ -273,6 +329,20 @@ function FollowupEditableRow({
               }
             }}
           />
+          {followup.customer_id ? (
+            <Button
+              render={<Link href={`/customers/${followup.customer_id}`} />}
+              nativeButton={false}
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              className="bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 hover:text-sky-800 dark:bg-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/30 dark:hover:text-sky-200"
+              title="Open 360°"
+              aria-label="Open 360°"
+            >
+              <Eye className="size-3.5" />
+            </Button>
+          ) : null}
         </div>
       </td>
     </tr>
@@ -332,50 +402,34 @@ export function FollowupsTable({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={loading}
-          onClick={() => void reload()}
-        >
-          {loading ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <RefreshCw className="size-3.5" />
-          )}
-          Refresh
-        </Button>
-      </div>
-
+    <div className="space-y-1.5">
       {loadError ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           Failed to load follow-ups: {loadError}
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border">
-        <table className="w-full min-w-[880px] border-collapse text-sm">
+      <div className="overflow-x-auto rounded-lg border">
+        <table className={cn(gridTableClass, "min-w-[980px]")}>
           <thead>
-            <tr className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="px-2.5 py-2.5 font-semibold">Date</th>
-              <th className="px-2.5 py-2.5 font-semibold">Mo No.</th>
-              <th className="px-2.5 py-2.5 font-semibold">Notes</th>
-              <th className="px-2.5 py-2.5 font-semibold">Inquiry</th>
-              <th className="px-2.5 py-2.5 text-right font-semibold">Actions</th>
+            <tr className={gridHeaderRowClass}>
+              <th className={gridHeaderCellClass}>Date</th>
+              <th className={gridHeaderCellClass}>Customer</th>
+              <th className={gridHeaderCellClass}>Mo No.</th>
+              <th className={gridHeaderCellClass}>Notes</th>
+              <th className={gridHeaderCellClass}>Inquiry</th>
+              <th className={cn(gridHeaderCellClass, "text-right")}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  colSpan={6}
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" />
+                    <Loader2 className="size-3.5 animate-spin" />
                     Loading follow-ups…
                   </span>
                 </td>
@@ -383,8 +437,8 @@ export function FollowupsTable({
             ) : rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  colSpan={6}
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   No follow-ups match your filters.
                   {statusFilter === "open"

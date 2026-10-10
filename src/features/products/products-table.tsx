@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import {
   createProductGridRowAction,
   deleteProductAction,
@@ -11,8 +11,14 @@ import {
 import {
   formatGridDate,
   GridSaveIndicator,
+  gridAddRowClass,
   gridCellInputClass,
+  gridCellPad,
   gridCellSelectClass,
+  gridDataRowClass,
+  gridHeaderCellClass,
+  gridHeaderRowClass,
+  gridTableClass,
   type GridSaveState,
 } from "@/components/shared/data-grid";
 import { usePermissions } from "@/components/providers/permissions-provider";
@@ -84,8 +90,8 @@ function ProductRow({
   }
 
   return (
-    <tr className="border-t odd:bg-muted/20">
-      <td className="p-1.5">
+    <tr className={gridDataRowClass}>
+      <td className={gridCellPad}>
         <input
           className={cn(gridCellInputClass, "min-w-[12rem] font-medium")}
           value={name}
@@ -104,7 +110,7 @@ function ProductRow({
           }}
         />
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={cn(
             gridCellSelectClass,
@@ -122,15 +128,28 @@ function ProductRow({
           <option value="false">Inactive</option>
         </select>
       </td>
-      <td className="p-1.5 text-xs tabular-nums text-muted-foreground whitespace-nowrap">
+      <td
+        className={cn(
+          gridCellPad,
+          "tabular-nums text-muted-foreground whitespace-nowrap",
+        )}
+      >
         {formatGridDate(product.created_at)}
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
+      <td className={gridCellPad}>
+        <div className="flex items-center justify-end gap-0.5">
           <GridSaveIndicator state={saveState} error={error} />
           <Can permission="product.delete">
-            <Button type="button" size="sm" variant="destructive" onClick={() => void remove()}>
-              Delete
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              className="bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive"
+              onClick={() => void remove()}
+              title="Delete"
+              aria-label="Delete"
+            >
+              <Trash2 className="size-3.5" />
             </Button>
           </Can>
         </div>
@@ -185,8 +204,8 @@ function NewProductRow({
   if (!canCreate) return null;
 
   return (
-    <tr className="border-b border-dashed bg-primary/5">
-      <td className="p-1.5">
+    <tr className={gridAddRowClass}>
+      <td className={gridCellPad}>
         <input
           className={cn(gridCellInputClass, "min-w-[12rem] font-medium")}
           value={name}
@@ -200,7 +219,7 @@ function NewProductRow({
           }}
         />
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={gridCellSelectClass}
           value={active ? "true" : "false"}
@@ -210,19 +229,20 @@ function NewProductRow({
           <option value="false">Inactive</option>
         </select>
       </td>
-      <td className="p-1.5 text-xs text-muted-foreground">—</td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
+      <td className={cn(gridCellPad, "text-muted-foreground")}>—</td>
+      <td className={gridCellPad}>
+        <div className="flex items-center justify-end gap-0.5">
           <GridSaveIndicator state={status} error={error} />
           <Button
             type="button"
-            size="sm"
+            size="icon-sm"
             variant="ghost"
             className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary dark:bg-primary/20 dark:hover:bg-primary/30"
             onClick={() => void add()}
+            title="Add"
+            aria-label="Add"
           >
             <Plus className="size-3.5" />
-            Add
           </Button>
         </div>
       </td>
@@ -263,26 +283,20 @@ export function ProductsTable({
   }, [filterKey, reload]);
 
   return (
-    <div className="space-y-2">
-      <div className="flex justify-end">
-        <Button type="button" variant="ghost" size="sm" disabled={loading} onClick={() => void reload()}>
-          {loading ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-          Refresh
-        </Button>
-      </div>
+    <div className="space-y-1.5">
       {loadError ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {loadError}
         </p>
       ) : null}
-      <div className="overflow-x-auto rounded-xl border">
-        <table className="w-full min-w-[720px] border-collapse text-sm">
+      <div className="overflow-x-auto rounded-lg border">
+        <table className={cn(gridTableClass, "min-w-[720px]")}>
           <thead>
-            <tr className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="px-2.5 py-2.5 font-semibold">Product</th>
-              <th className="px-2.5 py-2.5 font-semibold">Status</th>
-              <th className="px-2.5 py-2.5 font-semibold">Created</th>
-              <th className="px-2.5 py-2.5 text-right font-semibold">Actions</th>
+            <tr className={gridHeaderRowClass}>
+              <th className={gridHeaderCellClass}>Product</th>
+              <th className={gridHeaderCellClass}>Status</th>
+              <th className={gridHeaderCellClass}>Created</th>
+              <th className={cn(gridHeaderCellClass, "text-right")}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -294,13 +308,13 @@ export function ProductsTable({
             />
             {loading && rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">
                   Loading products…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">
                   No products yet. Use the row above to add one.
                 </td>
               </tr>

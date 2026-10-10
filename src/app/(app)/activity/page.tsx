@@ -39,7 +39,7 @@ export default async function ActivityPage({
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
       <Suspense fallback={null}>
         <ActivityFilters
           search={filters.search}
@@ -51,7 +51,7 @@ export default async function ActivityPage({
           actors={actors}
           actions={actions}
           heading={
-            <h2 className="text-2xl font-semibold tracking-tight">Activity</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Activity</h2>
           }
           toolbarActions={
             <ExportExcelButton

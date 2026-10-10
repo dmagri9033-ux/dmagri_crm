@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
+import { CheckCircle2, RotateCcw } from "lucide-react";
 import {
   completeFollowupAction,
   reopenFollowupAction,
@@ -14,20 +15,24 @@ import { Button } from "@/components/ui/button";
 function ActionButton({
   label,
   className,
+  icon,
 }: {
   label: string;
   className: string;
+  icon: React.ReactNode;
 }) {
   const { pending } = useFormStatus();
   return (
     <Button
       type="submit"
-      size="sm"
+      size="icon-sm"
       variant="ghost"
       className={className}
       disabled={pending}
+      title={pending ? "…" : label}
+      aria-label={pending ? "…" : label}
     >
-      {pending ? "…" : label}
+      {pending ? <span className="text-[10px]">…</span> : icon}
     </Button>
   );
 }
@@ -70,13 +75,14 @@ export function FollowupStatusActions({
   const error = completeState.error || reopenState.error;
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <>
       {!completed ? (
         <Can permission="followup.update">
           <form action={completeAction}>
             <input type="hidden" name="followupId" value={followupId} />
             <ActionButton
               label="Complete"
+              icon={<CheckCircle2 className="size-3.5" />}
               className="bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/20 hover:text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-300 dark:hover:bg-emerald-500/30 dark:hover:text-emerald-200"
             />
           </form>
@@ -87,6 +93,7 @@ export function FollowupStatusActions({
             <input type="hidden" name="followupId" value={followupId} />
             <ActionButton
               label="Reopen"
+              icon={<RotateCcw className="size-3.5" />}
               className="bg-amber-500/10 text-amber-900 hover:bg-amber-500/20 hover:text-amber-950 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30 dark:hover:text-amber-100"
             />
           </form>
@@ -95,6 +102,6 @@ export function FollowupStatusActions({
       {error ? (
         <p className="max-w-[10rem] text-[10px] text-destructive">{error}</p>
       ) : null}
-    </div>
+    </>
   );
 }

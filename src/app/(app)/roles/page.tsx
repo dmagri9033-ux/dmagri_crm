@@ -11,11 +11,9 @@ export default async function RolesPage() {
   const roles = await listRoles();
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-semibold tracking-tight">Roles</h2>
-        </div>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-semibold tracking-tight">Roles</h2>
         <CreateRoleDialog />
       </div>
 

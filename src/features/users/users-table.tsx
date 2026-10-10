@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
 import {
   loadUsersGridAction,
   patchUserFieldAction,
@@ -10,11 +9,15 @@ import {
   formatGridDate,
   GridSaveIndicator,
   gridCellInputClass,
+  gridCellPad,
   gridCellSelectClass,
+  gridDataRowClass,
+  gridHeaderCellClass,
+  gridHeaderRowClass,
+  gridTableClass,
   type GridSaveState,
 } from "@/components/shared/data-grid";
 import { usePermissions } from "@/components/providers/permissions-provider";
-import { Button } from "@/components/ui/button";
 import { UserRowActions } from "@/features/users/user-row-actions";
 import { isAdministratorRoleName } from "@/lib/rbac/administrator-shared";
 import type { UserRoleLite, UserRow } from "@/lib/db/users";
@@ -82,8 +85,8 @@ function UserGridRow({
   }
 
   return (
-    <tr className="border-t odd:bg-muted/20">
-      <td className="p-1.5">
+    <tr className={gridDataRowClass}>
+      <td className={gridCellPad}>
         <input
           className={cn(gridCellInputClass, "min-w-[10rem] font-medium")}
           value={displayName}
@@ -104,8 +107,8 @@ function UserGridRow({
           }}
         />
       </td>
-      <td className="p-1.5 text-sm text-muted-foreground">{user.email}</td>
-      <td className="p-1.5">
+      <td className={cn(gridCellPad, "text-muted-foreground")}>{user.email}</td>
+      <td className={gridCellPad}>
         <select
           className={cn(gridCellSelectClass, "min-w-[8rem]")}
           value={roleId}
@@ -124,7 +127,7 @@ function UserGridRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={cn(
             gridCellSelectClass,
@@ -143,17 +146,24 @@ function UserGridRow({
           <option value="false">Inactive</option>
         </select>
       </td>
-      <td className="p-1.5 text-xs tabular-nums text-muted-foreground whitespace-nowrap">
+      <td
+        className={cn(
+          gridCellPad,
+          "tabular-nums text-muted-foreground whitespace-nowrap",
+        )}
+      >
         {formatGridDate(user.created_at)}
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
+      <td className={gridCellPad}>
+        <div className="flex flex-col items-end gap-0.5">
           <GridSaveIndicator state={saveState} error={error} />
-          <UserRowActions
-            user={user}
-            onDeleted={onDeleted}
-            readOnly={isAdmin}
-          />
+          <div className="flex items-center justify-end gap-0.5">
+            <UserRowActions
+              user={user}
+              onDeleted={onDeleted}
+              readOnly={isAdmin}
+            />
+          </div>
         </div>
       </td>
     </tr>
@@ -194,38 +204,22 @@ export function UsersTable({
   }, [filterKey, reload]);
 
   return (
-    <div className="space-y-2">
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={loading}
-          onClick={() => void reload()}
-        >
-          {loading ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <RefreshCw className="size-3.5" />
-          )}
-          Refresh
-        </Button>
-      </div>
+    <div className="space-y-1.5">
       {loadError ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {loadError}
         </p>
       ) : null}
-      <div className="overflow-x-auto rounded-xl border">
-        <table className="w-full min-w-[920px] border-collapse text-sm">
+      <div className="overflow-x-auto rounded-lg border">
+        <table className={cn(gridTableClass, "min-w-[920px]")}>
           <thead>
-            <tr className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="px-2.5 py-2.5 font-semibold">Display name</th>
-              <th className="px-2.5 py-2.5 font-semibold">Email</th>
-              <th className="px-2.5 py-2.5 font-semibold">Role</th>
-              <th className="px-2.5 py-2.5 font-semibold">Status</th>
-              <th className="px-2.5 py-2.5 font-semibold">Created</th>
-              <th className="px-2.5 py-2.5 text-right font-semibold">Actions</th>
+            <tr className={gridHeaderRowClass}>
+              <th className={gridHeaderCellClass}>Display name</th>
+              <th className={gridHeaderCellClass}>Email</th>
+              <th className={gridHeaderCellClass}>Role</th>
+              <th className={gridHeaderCellClass}>Status</th>
+              <th className={gridHeaderCellClass}>Created</th>
+              <th className={cn(gridHeaderCellClass, "text-right")}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -233,7 +227,7 @@ export function UsersTable({
               <tr>
                 <td
                   colSpan={6}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   Loading users…
                 </td>
@@ -242,7 +236,7 @@ export function UsersTable({
               <tr>
                 <td
                   colSpan={6}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   No users match your filters. Create a user to get started.
                 </td>

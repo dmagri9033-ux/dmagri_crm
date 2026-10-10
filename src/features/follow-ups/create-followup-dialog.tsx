@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { PhoneForwarded, Plus } from "lucide-react";
 import { Can } from "@/components/shared/can";
 import {
   FollowupForm,
@@ -26,6 +26,8 @@ export function CreateFollowupDialog({
   triggerVariant = "default",
   triggerSize = "default",
   triggerClassName,
+  iconOnly = false,
+  onSuccess,
 }: {
   customers: Customer[];
   inquiries: FollowupInquiryOption[];
@@ -33,8 +35,10 @@ export function CreateFollowupDialog({
   defaultInquiryId?: string;
   triggerLabel?: string;
   triggerVariant?: "default" | "outline" | "secondary" | "ghost";
-  triggerSize?: "default" | "sm";
+  triggerSize?: "default" | "sm" | "icon-sm";
   triggerClassName?: string;
+  iconOnly?: boolean;
+  onSuccess?: () => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -43,12 +47,20 @@ export function CreateFollowupDialog({
       <Button
         type="button"
         variant={triggerVariant}
-        size={triggerSize}
+        size={iconOnly ? "icon-sm" : triggerSize}
         className={triggerClassName}
         onClick={() => setOpen(true)}
+        title={iconOnly ? triggerLabel : undefined}
+        aria-label={iconOnly ? triggerLabel : undefined}
       >
-        {triggerSize === "default" ? <Plus className="size-4" /> : null}
-        {triggerLabel}
+        {iconOnly ? (
+          <PhoneForwarded className="size-3.5" />
+        ) : (
+          <>
+            {triggerSize === "default" ? <Plus className="size-4" /> : null}
+            {triggerLabel}
+          </>
+        )}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -65,7 +77,10 @@ export function CreateFollowupDialog({
             inquiries={inquiries}
             defaultCustomerId={defaultCustomerId}
             defaultInquiryId={defaultInquiryId}
-            onSuccess={() => setOpen(false)}
+            onSuccess={() => {
+              setOpen(false);
+              onSuccess?.();
+            }}
           />
         </DialogContent>
       </Dialog>

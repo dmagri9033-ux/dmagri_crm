@@ -10,9 +10,9 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-xl flex-col gap-3">
       <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">Your profile</h2>
+        <h2 className="text-xl font-semibold tracking-tight">Your profile</h2>
       </div>
 
       <Separator />

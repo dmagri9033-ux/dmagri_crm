@@ -164,6 +164,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      whatsapp_templates: {
+        Row: {
+          id: string;
+          name: string;
+          content: string;
+          image_storage_path: string | null;
+          is_active: boolean;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          content: string;
+          image_storage_path?: string | null;
+          is_active?: boolean;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          content?: string;
+          image_storage_path?: string | null;
+          is_active?: boolean;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Relationships: [];
+      };
       customers: {
         Row: {
           id: string;
@@ -379,6 +415,7 @@ export type Database = {
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
+          source_followup_id: string | null;
         };
         Insert: {
           id?: string;
@@ -395,6 +432,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
+          source_followup_id?: string | null;
         };
         Update: {
           id?: string;
@@ -411,6 +449,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
+          source_followup_id?: string | null;
         };
         Relationships: [
           {

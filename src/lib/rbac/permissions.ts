@@ -40,6 +40,10 @@ export const PERMISSION_CODES = [
   "user.export",
   "activity.view",
   "activity.export",
+  "template.view",
+  "template.create",
+  "template.update",
+  "template.delete",
 ] as const;
 
 export type PermissionCode = (typeof PERMISSION_CODES)[number];
@@ -150,6 +154,16 @@ export const PERMISSION_MODULES: {
     permissions: [
       { code: "activity.view", label: "View" },
       { code: "activity.export", label: "Export" },
+    ],
+  },
+  {
+    module: "templates",
+    label: "Templates",
+    permissions: [
+      { code: "template.view", label: "View" },
+      { code: "template.create", label: "Create" },
+      { code: "template.update", label: "Update" },
+      { code: "template.delete", label: "Delete" },
     ],
   },
 ];

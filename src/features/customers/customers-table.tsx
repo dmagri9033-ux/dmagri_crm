@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { Eye, Loader2, Plus } from "lucide-react";
 import {
   createCustomerGridRowAction,
   loadCustomersGridAction,
@@ -10,13 +10,21 @@ import {
 } from "@/actions/customers";
 import {
   GridSaveIndicator,
+  gridAddRowClass,
   gridCellInputClass,
+  gridCellMobileClass,
   gridCellNumberClass,
+  gridCellPad,
   gridCellSelectClass,
+  gridDataRowClass,
+  gridHeaderCellClass,
+  gridHeaderRowClass,
+  gridTableClass,
   type GridSaveState,
 } from "@/components/shared/data-grid";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
+import { CopyMobileButton } from "@/components/shared/copy-mobile-button";
 import { WhatsAppMessageButton } from "@/components/shared/whatsapp-message-button";
 import { DeleteCustomerButton } from "@/features/customers/delete-customer-button";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
@@ -163,8 +171,8 @@ function CustomerEditableRow({
   const productOptions = productOptionsForRow(customer, products);
 
   return (
-    <tr className="border-t odd:bg-muted/20">
-      <td className="p-1.5">
+    <tr className={gridDataRowClass}>
+      <td className={gridCellPad}>
         <input
           type="text"
           className={cn(gridCellInputClass, "min-w-[10rem] font-medium")}
@@ -184,12 +192,13 @@ function CustomerEditableRow({
           }}
         />
       </td>
-      <td className="p-1.5">
-        <div className="flex items-center gap-1">
+      <td className={gridCellPad}>
+        <div className="flex items-center gap-0.5">
+          <CopyMobileButton mobile={mobile} />
           <input
             type="tel"
             inputMode="tel"
-            className={cn(gridCellNumberClass, "min-w-0 flex-1")}
+            className={cn(gridCellMobileClass, "min-w-0 flex-1")}
             value={mobile}
             disabled={!canUpdate}
             placeholder="Mobile"
@@ -218,7 +227,7 @@ function CustomerEditableRow({
           />
         </div>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={gridCellSelectClass}
           value={customerType}
@@ -236,7 +245,7 @@ function CustomerEditableRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={gridCellSelectClass}
           value={productId}
@@ -256,7 +265,7 @@ function CustomerEditableRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={cn(
             gridCellSelectClass,
@@ -276,7 +285,7 @@ function CustomerEditableRow({
           <option value="true">Yes</option>
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={cn(
             gridCellSelectClass,
@@ -296,25 +305,25 @@ function CustomerEditableRow({
           <option value="true">Yes</option>
         </select>
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
+      <td className={gridCellPad}>
+        <div className="flex items-center justify-end gap-0.5">
           <GridSaveIndicator state={saveState} error={error} />
-          <div className="flex flex-wrap justify-end gap-1">
-            <Button
-              render={<Link href={`/customers/${customer.id}`} />}
-              nativeButton={false}
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 hover:text-sky-800 dark:bg-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/30 dark:hover:text-sky-200"
-            >
-              Open 360°
-            </Button>
-            <DeleteCustomerButton
-              customerId={customer.id}
-              customerName={customer.name}
-            />
-          </div>
+          <Button
+            render={<Link href={`/customers/${customer.id}`} />}
+            nativeButton={false}
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            className="bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 hover:text-sky-800 dark:bg-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/30 dark:hover:text-sky-200"
+            title="Open 360°"
+            aria-label="Open 360°"
+          >
+            <Eye className="size-3.5" />
+          </Button>
+          <DeleteCustomerButton
+            customerId={customer.id}
+            customerName={customer.name}
+          />
         </div>
       </td>
     </tr>
@@ -388,8 +397,8 @@ function NewCustomerRow({
   if (!canCreate) return null;
 
   return (
-    <tr className="border-b border-dashed bg-primary/5">
-      <td className="p-1.5">
+    <tr className={gridAddRowClass}>
+      <td className={gridCellPad}>
         <input
           className={cn(gridCellInputClass, "min-w-[10rem] font-medium")}
           value={name}
@@ -403,23 +412,27 @@ function NewCustomerRow({
           }}
         />
       </td>
-      <td className="p-1.5">
-        <input
-          type="tel"
-          inputMode="tel"
-          className={gridCellNumberClass}
-          value={mobile}
-          placeholder="Mobile number *"
-          onChange={(e) => setMobile(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              void add();
-            }
-          }}
-        />
+      <td className={gridCellPad}>
+        <div className="flex items-center gap-0.5">
+          <CopyMobileButton mobile={mobile} />
+          <input
+            type="tel"
+            inputMode="tel"
+            className={cn(gridCellMobileClass, "min-w-0 flex-1")}
+            value={mobile}
+            placeholder="Mobile number *"
+            onChange={(e) => setMobile(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void add();
+              }
+            }}
+          />
+          <WhatsAppMessageButton mobile={mobile} customerName={name || undefined} />
+        </div>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={gridCellSelectClass}
           value={customerType}
@@ -433,7 +446,7 @@ function NewCustomerRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={gridCellSelectClass}
           value={productId}
@@ -450,7 +463,7 @@ function NewCustomerRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={gridCellSelectClass}
           value={purchased ? "true" : "false"}
@@ -461,7 +474,7 @@ function NewCustomerRow({
           <option value="true">Yes</option>
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={gridCellPad}>
         <select
           className={gridCellSelectClass}
           value={followUp ? "true" : "false"}
@@ -471,18 +484,19 @@ function NewCustomerRow({
           <option value="true">Yes</option>
         </select>
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
+      <td className={gridCellPad}>
+        <div className="flex items-center justify-end gap-0.5">
           <GridSaveIndicator state={status} error={error} />
           <Button
             type="button"
-            size="sm"
+            size="icon-sm"
             variant="ghost"
             className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary dark:bg-primary/20 dark:hover:bg-primary/30"
             onClick={() => void add()}
+            title="Add"
+            aria-label="Add"
           >
             <Plus className="size-3.5" />
-            Add
           </Button>
         </div>
       </td>
@@ -536,41 +550,24 @@ export function CustomersTable({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={loading}
-          onClick={() => void reload()}
-        >
-          {loading ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <RefreshCw className="size-3.5" />
-          )}
-          Refresh
-        </Button>
-      </div>
-
+    <div className="space-y-1.5">
       {loadError ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           Failed to load customers: {loadError}
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border">
-        <table className="w-full min-w-[960px] border-collapse text-sm">
+      <div className="overflow-x-auto rounded-lg border">
+        <table className={cn(gridTableClass, "min-w-[960px]")}>
           <thead>
-            <tr className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="px-2.5 py-2.5 font-semibold">Name</th>
-              <th className="px-2.5 py-2.5 font-semibold">Mo No.</th>
-              <th className="px-2.5 py-2.5 font-semibold">Type</th>
-              <th className="px-2.5 py-2.5 font-semibold">Product</th>
-              <th className="px-2.5 py-2.5 font-semibold">Purchased</th>
-              <th className="px-2.5 py-2.5 font-semibold">Follow-up</th>
-              <th className="px-2.5 py-2.5 text-right font-semibold">Actions</th>
+            <tr className={gridHeaderRowClass}>
+              <th className={gridHeaderCellClass}>Name</th>
+              <th className={gridHeaderCellClass}>Mo No.</th>
+              <th className={gridHeaderCellClass}>Type</th>
+              <th className={gridHeaderCellClass}>Product</th>
+              <th className={gridHeaderCellClass}>Purchased</th>
+              <th className={gridHeaderCellClass}>Follow-up</th>
+              <th className={cn(gridHeaderCellClass, "text-right")}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -585,10 +582,10 @@ export function CustomersTable({
               <tr>
                 <td
                   colSpan={7}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" />
+                    <Loader2 className="size-3.5 animate-spin" />
                     Loading customers…
                   </span>
                 </td>
@@ -597,7 +594,7 @@ export function CustomersTable({
               <tr>
                 <td
                   colSpan={7}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   No customers match your filters. Use the row above to add one.
                 </td>

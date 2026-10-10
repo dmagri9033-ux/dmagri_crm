@@ -28,13 +28,13 @@ export default async function ProductsPage({
   const result = await listProducts(filters);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
       <Suspense fallback={null}>
         <ProductFilters
           search={filters.search}
           status={filters.status}
           heading={
-            <h2 className="text-2xl font-semibold tracking-tight">Products</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Products</h2>
           }
           actions={
             <ExportExcelButton

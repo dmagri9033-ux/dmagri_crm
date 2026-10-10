@@ -4,17 +4,24 @@ import { AppShell } from "@/components/layout/app-shell";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { PermissionsProvider } from "@/components/providers/permissions-provider";
 import { listMyNotifications } from "@/lib/db/notifications";
+import { ensureReminderAlertsFresh } from "@/lib/notifications/ensure-reminder-alerts";
 import { getSessionContext } from "@/lib/rbac/authorize";
 import { UnauthorizedError } from "@/lib/rbac/errors";
 import type { PermissionCode } from "@/lib/rbac/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 async function LayoutNotifications() {
+  try {
+    await ensureReminderAlertsFresh();
+  } catch (error) {
+    console.error("ensureReminderAlertsFresh failed:", error);
+  }
   const data = await listMyNotifications(25);
   return (
     <NotificationBell
       notifications={data.notifications}
       unreadCount={data.unreadCount}
+      reminderCounts={data.reminderCounts}
     />
   );
 }
@@ -59,7 +66,13 @@ export default async function AppLayout({
         }}
         notifications={
           <Suspense
-            fallback={<NotificationBell notifications={[]} unreadCount={0} />}
+            fallback={
+              <NotificationBell
+                notifications={[]}
+                unreadCount={0}
+                reminderCounts={{ overdue: 0, today: 0, unread: 0 }}
+              />
+            }
           >
             <LayoutNotifications />
           </Suspense>

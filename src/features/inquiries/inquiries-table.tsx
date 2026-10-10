@@ -8,20 +8,28 @@ import {
   useState,
   useTransition,
 } from "react";
-import { Check, Loader2, Plus, RefreshCw } from "lucide-react";
+import { Check, Eye, Loader2, Plus } from "lucide-react";
 import {
   createInquiryGridRowAction,
   loadInquiriesGridAction,
   patchInquiryFieldAction,
 } from "@/actions/inquiries";
 import {
+  gridAddRowClass,
   gridCellInputClass,
+  gridCellMobileClass,
   gridCellNumberClass,
+  gridCellPad,
   gridCellSelectClass,
+  gridDataRowClass,
+  gridHeaderCellClass,
+  gridHeaderRowClass,
+  gridTableClass,
 } from "@/components/shared/data-grid";
 import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
 import { DeleteInquiryButton } from "@/features/inquiries/delete-inquiry-button";
+import { CopyMobileButton } from "@/components/shared/copy-mobile-button";
 import { WhatsAppMessageButton } from "@/components/shared/whatsapp-message-button";
 import { InquiryStatusActions } from "@/features/inquiries/inquiry-status-actions";
 import { CreateFollowupDialog } from "@/features/follow-ups/create-followup-dialog";
@@ -38,6 +46,15 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 const cellInputClass = gridCellInputClass;
 const cellNumberClass = gridCellNumberClass;
 const cellSelectClass = gridCellSelectClass;
+const cellPad = gridCellPad;
+
+function displayCustomerName(inquiry: InquiryWithRelations): string {
+  return (
+    inquiry.customers?.name ||
+    inquiry.customer_name_snapshot ||
+    ""
+  );
+}
 
 function todayIst(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
@@ -109,6 +126,7 @@ function InquiryEditableRow({
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string>();
   const [mobile, setMobile] = useState(displayMobile(inquiry));
+  const [customerName, setCustomerName] = useState(displayCustomerName(inquiry));
   const [remarks, setRemarks] = useState(inquiry.remarks ?? "");
   const [date, setDate] = useState(inquiry.inquiry_date);
   const [customerType, setCustomerType] = useState(() =>
@@ -118,13 +136,19 @@ function InquiryEditableRow({
   const [purchased, setPurchased] = useState(inquiry.product_purchased);
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const editingFieldRef = useRef<"mobile" | "remarks" | null>(null);
+  const editingFieldRef = useRef<"mobile" | "customer_name" | "remarks" | null>(
+    null,
+  );
   const remarksDirtyRef = useRef(false);
   const mobileDirtyRef = useRef(false);
+  const nameDirtyRef = useRef(false);
 
   useEffect(() => {
     if (editingFieldRef.current !== "mobile" && !mobileDirtyRef.current) {
       setMobile(displayMobile(inquiry));
+    }
+    if (editingFieldRef.current !== "customer_name" && !nameDirtyRef.current) {
+      setCustomerName(displayCustomerName(inquiry));
     }
     if (editingFieldRef.current !== "remarks" && !remarksDirtyRef.current) {
       setRemarks(inquiry.remarks ?? "");
@@ -140,6 +164,7 @@ function InquiryEditableRow({
       field:
         | "inquiry_date"
         | "mobile"
+        | "customer_name"
         | "customer_type"
         | "product_id"
         | "product_purchased"
@@ -161,6 +186,10 @@ function InquiryEditableRow({
           setMobile(displayMobile(inquiry));
           mobileDirtyRef.current = false;
         }
+        if (field === "customer_name") {
+          setCustomerName(displayCustomerName(inquiry));
+          nameDirtyRef.current = false;
+        }
         if (field === "remarks") {
           setRemarks(inquiry.remarks ?? "");
           remarksDirtyRef.current = false;
@@ -168,6 +197,7 @@ function InquiryEditableRow({
         return;
       }
       if (field === "mobile") mobileDirtyRef.current = false;
+      if (field === "customer_name") nameDirtyRef.current = false;
       if (field === "remarks") remarksDirtyRef.current = false;
       if (result.inquiry) {
         onUpdated(result.inquiry);
@@ -214,8 +244,8 @@ function InquiryEditableRow({
   }
 
   return (
-    <tr className="border-t odd:bg-muted/20">
-      <td className="p-1.5">
+    <tr className={gridDataRowClass}>
+      <td className={cellPad}>
         <input
           type="date"
           className={cellNumberClass}
@@ -227,56 +257,72 @@ function InquiryEditableRow({
           }}
         />
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-1">
-            <input
-              type="tel"
-              inputMode="tel"
-              className={cn(cellNumberClass, "min-w-0 flex-1")}
-              value={mobile}
-              disabled={!editable}
-              placeholder="Mobile number"
-              onFocus={() => {
-                editingFieldRef.current = "mobile";
-              }}
-              onChange={(e) => {
-                mobileDirtyRef.current = true;
-                setMobile(e.target.value);
-                scheduleMobileSave(e.target.value);
-              }}
-              onBlur={() => {
-                editingFieldRef.current = null;
-                if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
-                if (mobile.trim() && mobile !== displayMobile(inquiry)) {
-                  void saveField("mobile", mobile);
-                } else {
-                  mobileDirtyRef.current = false;
-                }
-              }}
-            />
-            <WhatsAppMessageButton
-              mobile={mobile}
-              customerName={
-                inquiry.customers?.name ||
-                inquiry.customer_name_snapshot ||
-                undefined
+      <td className={cellPad}>
+        <input
+          type="text"
+          className={cn(cellInputClass, "min-w-[7rem] font-medium")}
+          value={customerName}
+          disabled={!editable}
+          placeholder="Customer name"
+          onFocus={() => {
+            editingFieldRef.current = "customer_name";
+          }}
+          onChange={(e) => {
+            nameDirtyRef.current = true;
+            setCustomerName(e.target.value);
+          }}
+          onBlur={() => {
+            editingFieldRef.current = null;
+            if (customerName.trim() !== displayCustomerName(inquiry)) {
+              void saveField("customer_name", customerName);
+            } else {
+              nameDirtyRef.current = false;
+            }
+          }}
+        />
+      </td>
+      <td className={cellPad}>
+        <div className="flex items-center gap-0.5">
+          <CopyMobileButton mobile={mobile} />
+          <input
+            type="tel"
+            inputMode="tel"
+            className={cn(gridCellMobileClass, "min-w-0 flex-1")}
+            value={mobile}
+            disabled={!editable}
+            placeholder="Mobile"
+            onFocus={() => {
+              editingFieldRef.current = "mobile";
+            }}
+            onChange={(e) => {
+              mobileDirtyRef.current = true;
+              setMobile(e.target.value);
+              scheduleMobileSave(e.target.value);
+            }}
+            onBlur={() => {
+              editingFieldRef.current = null;
+              if (mobileDebounceRef.current) clearTimeout(mobileDebounceRef.current);
+              if (mobile.trim() && mobile !== displayMobile(inquiry)) {
+                void saveField("mobile", mobile);
+              } else {
+                mobileDirtyRef.current = false;
               }
-              customerId={inquiry.customer_id}
-              inquiryId={inquiry.id}
-            />
-          </div>
-          {inquiry.customer_id ? (
-            <Link
-              href={`/customers/${inquiry.customer_id}`}
-              className="px-2 text-[10px] text-muted-foreground underline-offset-2 hover:underline"
-            >
-              Open 360°
-            </Link>
-          ) : null}
+            }}
+          />
+          <WhatsAppMessageButton
+            mobile={mobile}
+            customerName={
+              customerName ||
+              inquiry.customers?.name ||
+              inquiry.customer_name_snapshot ||
+              undefined
+            }
+            customerId={inquiry.customer_id}
+            inquiryId={inquiry.id}
+          />
         </div>
       </td>
-      <td className="p-1.5">
+      <td className={cellPad}>
         <select
           className={cellSelectClass}
           value={customerType}
@@ -294,7 +340,7 @@ function InquiryEditableRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={cellPad}>
         <select
           className={cellSelectClass}
           value={productId}
@@ -314,7 +360,7 @@ function InquiryEditableRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={cellPad}>
         <select
           className={cn(
             cellSelectClass,
@@ -334,10 +380,10 @@ function InquiryEditableRow({
           <option value="true">Yes</option>
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={cellPad}>
         <input
           type="text"
-          className={cn(cellInputClass, "min-w-[10rem]")}
+          className={cn(cellInputClass, "min-w-[7rem]")}
           value={remarks}
           disabled={!editable}
           placeholder="Notes"
@@ -351,7 +397,6 @@ function InquiryEditableRow({
             setRemarks(e.target.value);
           }}
           onKeyDown={(e) => {
-            // Keep typing fluid — don't let Enter submit surrounding forms
             if (e.key === "Enter") e.stopPropagation();
           }}
           onBlur={() => {
@@ -366,47 +411,62 @@ function InquiryEditableRow({
           }}
         />
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
+      <td className={cellPad}>
+        <div className="flex items-center justify-end gap-0.5">
           <SaveIndicator state={saveState} error={error} />
-          <div className="flex flex-wrap justify-end gap-1">
-            <InquiryStatusActions
-              inquiryId={inquiry.id}
-              completed={isCompleted}
-              onCompleted={() => {
+          {!isCompleted ? (
+            <CreateFollowupDialog
+              customers={customers}
+              inquiries={[
+                {
+                  id: inquiry.id,
+                  inquiry_date: inquiry.inquiry_date,
+                  product_name_snapshot:
+                    inquiry.product_name_snapshot ||
+                    inquiry.products?.name ||
+                    null,
+                  customer_id: inquiry.customer_id,
+                },
+              ]}
+              defaultCustomerId={inquiry.customer_id}
+              defaultInquiryId={inquiry.id}
+              triggerLabel="Follow-up"
+              triggerVariant="ghost"
+              iconOnly
+              triggerClassName="bg-violet-500/10 text-violet-800 hover:bg-violet-500/20 hover:text-violet-900 dark:bg-violet-500/20 dark:text-violet-300 dark:hover:bg-violet-500/30 dark:hover:text-violet-200"
+              onSuccess={() => {
                 if (hideOnComplete) onRemoved(inquiry.id);
               }}
-              onReopened={() => {
-                if (hideOnReopen) onRemoved(inquiry.id);
-              }}
             />
-            {!isCompleted ? (
-              <CreateFollowupDialog
-                customers={customers}
-                inquiries={[
-                  {
-                    id: inquiry.id,
-                    inquiry_date: inquiry.inquiry_date,
-                    product_name_snapshot:
-                      inquiry.product_name_snapshot ||
-                      inquiry.products?.name ||
-                      null,
-                    customer_id: inquiry.customer_id,
-                  },
-                ]}
-                defaultCustomerId={inquiry.customer_id}
-                defaultInquiryId={inquiry.id}
-                triggerLabel="Follow-up"
-                triggerVariant="ghost"
-                triggerSize="sm"
-                triggerClassName="bg-violet-500/10 text-violet-800 hover:bg-violet-500/20 hover:text-violet-900 dark:bg-violet-500/20 dark:text-violet-300 dark:hover:bg-violet-500/30 dark:hover:text-violet-200"
-              />
-            ) : null}
-            <DeleteInquiryButton
-              inquiryId={inquiry.id}
-              label={mobile || "this inquiry"}
-            />
-          </div>
+          ) : null}
+          <InquiryStatusActions
+            inquiryId={inquiry.id}
+            completed={isCompleted}
+            onCompleted={() => {
+              if (hideOnComplete) onRemoved(inquiry.id);
+            }}
+            onReopened={() => {
+              if (hideOnReopen) onRemoved(inquiry.id);
+            }}
+          />
+          {inquiry.customer_id ? (
+            <Button
+              render={<Link href={`/customers/${inquiry.customer_id}`} />}
+              nativeButton={false}
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              className="bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 hover:text-sky-800 dark:bg-sky-500/20 dark:text-sky-300 dark:hover:bg-sky-500/30 dark:hover:text-sky-200"
+              title="Open 360°"
+              aria-label="Open 360°"
+            >
+              <Eye className="size-3.5" />
+            </Button>
+          ) : null}
+          <DeleteInquiryButton
+            inquiryId={inquiry.id}
+            label={mobile || "this inquiry"}
+          />
         </div>
       </td>
     </tr>
@@ -426,6 +486,7 @@ function NewInquiryRow({
   const savingRef = useRef(false);
   const [date, setDate] = useState(todayIst());
   const [mobile, setMobile] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [customerType, setCustomerType] = useState("");
   const [productId, setProductId] = useState("");
   const [purchased, setPurchased] = useState(false);
@@ -436,6 +497,7 @@ function NewInquiryRow({
   function reset() {
     setDate(todayIst());
     setMobile("");
+    setCustomerName("");
     setCustomerType("");
     setProductId("");
     setPurchased(false);
@@ -460,6 +522,7 @@ function NewInquiryRow({
     try {
       const result = await createInquiryGridRowAction({
         mobile: trimmed,
+        customer_name: customerName.trim() || undefined,
         inquiry_date: date,
         customer_type: customerType,
         product_id: productId,
@@ -487,8 +550,8 @@ function NewInquiryRow({
   if (!canCreate) return null;
 
   return (
-    <tr className="border-b border-dashed bg-primary/5">
-      <td className="p-1.5">
+    <tr className={gridAddRowClass}>
+      <td className={cellPad}>
         <input
           type="date"
           className={cellNumberClass}
@@ -496,14 +559,13 @@ function NewInquiryRow({
           onChange={(e) => setDate(e.target.value)}
         />
       </td>
-      <td className="p-1.5">
+      <td className={cellPad}>
         <input
-          type="tel"
-          inputMode="tel"
-          className={cellNumberClass}
-          value={mobile}
-          placeholder="Mobile number *"
-          onChange={(e) => setMobile(e.target.value)}
+          type="text"
+          className={cn(cellInputClass, "min-w-[7rem] font-medium")}
+          value={customerName}
+          placeholder="Customer name"
+          onChange={(e) => setCustomerName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -512,7 +574,30 @@ function NewInquiryRow({
           }}
         />
       </td>
-      <td className="p-1.5">
+      <td className={cellPad}>
+        <div className="flex items-center gap-0.5">
+          <CopyMobileButton mobile={mobile} />
+          <input
+            type="tel"
+            inputMode="tel"
+            className={cn(gridCellMobileClass, "min-w-0 flex-1")}
+            value={mobile}
+            placeholder="Mobile *"
+            onChange={(e) => setMobile(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void saveNewRow();
+              }
+            }}
+          />
+          <WhatsAppMessageButton
+            mobile={mobile}
+            customerName={customerName || undefined}
+          />
+        </div>
+      </td>
+      <td className={cellPad}>
         <select
           className={cellSelectClass}
           value={customerType}
@@ -526,7 +611,7 @@ function NewInquiryRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={cellPad}>
         <select
           className={cellSelectClass}
           value={productId}
@@ -543,7 +628,7 @@ function NewInquiryRow({
           ))}
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={cellPad}>
         <select
           className={cellSelectClass}
           value={purchased ? "true" : "false"}
@@ -554,28 +639,29 @@ function NewInquiryRow({
           <option value="true">Yes</option>
         </select>
       </td>
-      <td className="p-1.5">
+      <td className={cellPad}>
         <input
           type="text"
-          className={cn(cellInputClass, "min-w-[8rem]")}
+          className={cn(cellInputClass, "min-w-[7rem]")}
           value={remarks}
           placeholder="Notes"
           onChange={(e) => setRemarks(e.target.value)}
         />
       </td>
-      <td className="p-1.5">
-        <div className="flex flex-col items-end gap-1">
+      <td className={cellPad}>
+        <div className="flex items-center justify-end gap-0.5">
           <SaveIndicator state={pending ? "saving" : status} error={error} />
           <Button
             type="button"
-            size="sm"
+            size="icon-sm"
             variant="ghost"
             className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary dark:bg-primary/20 dark:hover:bg-primary/30"
             disabled={pending}
             onClick={() => void saveNewRow()}
+            title="Add"
+            aria-label="Add"
           >
             <Plus className="size-3.5" />
-            Add
           </Button>
         </div>
       </td>
@@ -641,41 +727,25 @@ export function InquiriesTable({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={loading}
-          onClick={() => void reload()}
-        >
-          {loading ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <RefreshCw className="size-3.5" />
-          )}
-          Refresh
-        </Button>
-      </div>
-
+    <div className="space-y-1.5">
       {loadError ? (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           Failed to load inquiries: {loadError}
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-xl border">
-        <table className="w-full min-w-[960px] border-collapse text-sm">
+      <div className="overflow-x-auto rounded-lg border">
+        <table className={cn(gridTableClass, "min-w-[1020px]")}>
           <thead>
-            <tr className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="px-2.5 py-2.5 font-semibold">Date</th>
-              <th className="px-2.5 py-2.5 font-semibold">Mo No.</th>
-              <th className="px-2.5 py-2.5 font-semibold">Type</th>
-              <th className="px-2.5 py-2.5 font-semibold">Product</th>
-              <th className="px-2.5 py-2.5 font-semibold">Purchased</th>
-              <th className="px-2.5 py-2.5 font-semibold">Notes</th>
-              <th className="px-2.5 py-2.5 text-right font-semibold">Actions</th>
+            <tr className={gridHeaderRowClass}>
+              <th className={gridHeaderCellClass}>Date</th>
+              <th className={gridHeaderCellClass}>Customer</th>
+              <th className={gridHeaderCellClass}>Mo No.</th>
+              <th className={gridHeaderCellClass}>Type</th>
+              <th className={gridHeaderCellClass}>Product</th>
+              <th className={gridHeaderCellClass}>Purchased</th>
+              <th className={gridHeaderCellClass}>Notes</th>
+              <th className={cn(gridHeaderCellClass, "text-right")}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -691,11 +761,11 @@ export function InquiriesTable({
             {loading && rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  colSpan={8}
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-4 animate-spin" />
+                    <Loader2 className="size-3.5 animate-spin" />
                     Loading inquiries…
                   </span>
                 </td>
@@ -703,8 +773,8 @@ export function InquiriesTable({
             ) : rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  colSpan={8}
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   No inquiries match your filters.
                   {statusFilter === "open"

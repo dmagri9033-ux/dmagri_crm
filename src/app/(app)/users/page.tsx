@@ -33,7 +33,7 @@ export default async function UsersPage({
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
       <Suspense fallback={null}>
         <UserFilters
           search={filters.search}
@@ -41,7 +41,7 @@ export default async function UsersPage({
           roleId={filters.role_id}
           roles={roles}
           heading={
-            <h2 className="text-2xl font-semibold tracking-tight">Users</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Users</h2>
           }
           actions={
             <>

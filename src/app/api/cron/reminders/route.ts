@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { purgeOldActivityLogs } from "@/lib/activity/purge-old-logs";
 import { generateReminderNotifications } from "@/lib/notifications/generate-reminder-notifications";
+import { syncTodayFollowupsToReminders } from "@/lib/reminders/sync-followups-to-reminders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,8 +23,8 @@ function authorizeCron(request: Request): boolean {
 }
 
 /**
- * Daily cron (Hobby-compatible): fan out today/overdue reminder notifications
- * and purge activity logs from before today IST.
+ * Daily cron (Hobby-compatible): sync today's follow-ups into reminders,
+ * fan out today/overdue reminder notifications, and purge old activity logs.
  * Schedule in vercel.json: 30 0 * * * (06:00 IST).
  * Auth: Authorization: Bearer $CRON_SECRET (or ?secret= for manual runs).
  */
@@ -33,6 +34,17 @@ export async function GET(request: Request) {
   }
 
   const errors: string[] = [];
+
+  let followupSync: Awaited<
+    ReturnType<typeof syncTodayFollowupsToReminders>
+  > | null = null;
+  try {
+    followupSync = await syncTodayFollowupsToReminders();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("cron/reminders follow-up sync failed:", message);
+    errors.push(`followupSync: ${message}`);
+  }
 
   let reminders: Awaited<ReturnType<typeof generateReminderNotifications>> | null =
     null;
@@ -58,6 +70,7 @@ export async function GET(request: Request) {
   return NextResponse.json(
     {
       ok,
+      followupSync,
       reminders,
       activityLogs,
       ...(errors.length ? { errors } : {}),

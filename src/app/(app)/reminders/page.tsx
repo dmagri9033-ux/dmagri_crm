@@ -43,7 +43,7 @@ export default async function RemindersPage({
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
       <Suspense fallback={null}>
         <ReminderFilters
           search={filters.search}
@@ -56,7 +56,7 @@ export default async function RemindersPage({
           customers={customersResult.customers}
           assignees={assignees}
           heading={
-            <h2 className="text-2xl font-semibold tracking-tight">Reminders</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Reminders</h2>
           }
           actions={
             <ExportExcelButton

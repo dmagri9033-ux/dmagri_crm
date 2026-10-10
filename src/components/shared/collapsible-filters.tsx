@@ -33,14 +33,16 @@ export function CollapsibleFilters({
   }, [activeCount]);
 
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className={cn("flex flex-col gap-2", className)}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         {heading ? (
-          <div className="min-w-0 flex-1 space-y-1">{heading}</div>
+          <div className="min-w-0 flex-1">{heading}</div>
         ) : null}
 
-        <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
-          {actions}
+        <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-1.5 sm:w-auto">
+          {actions ? (
+            <div className="contents">{actions}</div>
+          ) : null}
           <Button
             type="button"
             variant={open ? "secondary" : "outline"}
@@ -53,7 +55,7 @@ export function CollapsibleFilters({
             {open ? (
               <X className="size-4" />
             ) : (
-              <>
+              <span className="inline-flex items-center gap-1.5">
                 <Filter className="size-3.5" />
                 <span>Filters</span>
                 {activeCount > 0 ? (
@@ -61,7 +63,7 @@ export function CollapsibleFilters({
                     {activeCount}
                   </span>
                 ) : null}
-              </>
+              </span>
             )}
           </Button>
         </div>

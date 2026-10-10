@@ -39,7 +39,7 @@ export default async function CustomersPage({
   const filterProducts = allProductsPage.products;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
       <Suspense fallback={null}>
         <CustomerFilters
           search={filters.search}
@@ -49,7 +49,7 @@ export default async function CustomersPage({
           followUp={filters.followUp}
           products={filterProducts}
           heading={
-            <h2 className="text-2xl font-semibold tracking-tight">Customers</h2>
+            <h2 className="text-xl font-semibold tracking-tight">Customers</h2>
           }
           actions={
             <>
