@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { after } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database.types";
 
 export type ActivityAction =
@@ -36,7 +37,13 @@ export type ActivityAction =
   | "EXCEL_IMPORT_INQUIRIES"
   | "EXCEL_IMPORT_CUSTOMERS";
 
-export async function logActivity(input: {
+/**
+ * Fire-and-forget activity log for Server Actions / handlers.
+ * Uses `after()` so Vercel keeps the invocation alive until the insert finishes,
+ * without blocking the user-facing response. Service role avoids cookie access
+ * inside the deferred callback.
+ */
+export function logActivity(input: {
   actorId: string;
   action: ActivityAction | string;
   module: string;
@@ -44,20 +51,24 @@ export async function logActivity(input: {
   entityId: string;
   customerId?: string | null;
   metadata?: Json;
-}) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("activity_logs").insert({
-    actor_id: input.actorId,
-    action: input.action,
-    module: input.module,
-    entity_type: input.entityType,
-    entity_id: input.entityId,
-    customer_id: input.customerId ?? null,
-    metadata: input.metadata ?? {},
+}): void {
+  after(async () => {
+    try {
+      const supabase = createAdminClient();
+      const { error } = await supabase.from("activity_logs").insert({
+        actor_id: input.actorId,
+        action: input.action,
+        module: input.module,
+        entity_type: input.entityType,
+        entity_id: input.entityId,
+        customer_id: input.customerId ?? null,
+        metadata: input.metadata ?? {},
+      });
+      if (error) {
+        console.error("activity_logs insert failed:", error.message);
+      }
+    } catch (error) {
+      console.error("activity_logs insert failed:", error);
+    }
   });
-
-  // Activity logging should not break primary mutations
-  if (error) {
-    console.error("activity_logs insert failed:", error.message);
-  }
 }

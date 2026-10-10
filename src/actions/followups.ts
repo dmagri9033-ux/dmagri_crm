@@ -18,6 +18,7 @@ import {
 } from "@/lib/reminders/sync-followups-to-reminders";
 import { authorize } from "@/lib/rbac/authorize";
 import { toActionError } from "@/lib/rbac/errors";
+import { afterResponse } from "@/lib/server/after-response";
 import { createClient } from "@/lib/supabase/server";
 import {
   followupFilterSchema,
@@ -51,6 +52,11 @@ async function syncFollowupsIntoReminders() {
   } catch (error) {
     console.error("syncFollowupsIntoReminders failed:", error);
   }
+}
+
+/** Non-blocking on Vercel — keeps the function alive via after()/waitUntil. */
+function syncFollowupsIntoRemindersAfterResponse() {
+  afterResponse(() => syncFollowupsIntoReminders());
 }
 
 /** Close the linked inquiry so it leaves the Open Inquiries list. */
@@ -143,7 +149,7 @@ export async function createFollowupAction(
       });
     }
 
-    await syncFollowupsIntoReminders();
+    syncFollowupsIntoRemindersAfterResponse();
     revalidateFollowupPaths(parsed.data.customer_id, inquiryId);
     return { success: "Follow-up added.", followupId };
   } catch (error) {
@@ -206,7 +212,7 @@ export async function updateFollowupAction(
       customerId: parsed.data.customer_id,
     });
 
-    await syncFollowupsIntoReminders();
+    syncFollowupsIntoRemindersAfterResponse();
     revalidateFollowupPaths(parsed.data.customer_id, inquiryId);
     if (existing.customer_id !== parsed.data.customer_id) {
       revalidateFollowupPaths(existing.customer_id, existing.inquiry_id);
@@ -367,7 +373,7 @@ export async function reopenFollowupAction(
 
     try {
       await reopenReminderForFollowup(followupId);
-      await syncFollowupsIntoReminders();
+      syncFollowupsIntoRemindersAfterResponse();
     } catch (error) {
       console.error("reopenReminderForFollowup failed:", error);
     }
@@ -398,7 +404,8 @@ async function resolveCustomerForFollowup(input: {
   }
 
   const supabase = await createClient();
-  const name = `Customer ${input.mobile.replace(/\D/g, "").slice(-10)}`;
+  // Keep name blank when not provided — never invent "Customer {mobile}".
+  const name = "";
 
   const { data, error } = await supabase
     .from("customers")
@@ -507,7 +514,9 @@ export async function patchFollowupFieldAction(input: {
       patch.notes = notes;
     } else if (input.field === "customer_name") {
       const name = input.value.trim();
-      if (!name) return { error: "Customer name is required" };
+      if (/\d/.test(name)) {
+        return { error: "Customer name cannot include numbers" };
+      }
       if (name.length > 120) return { error: "Name is too long" };
       const { error: customerError } = await supabase
         .from("customers")
@@ -642,7 +651,7 @@ export async function patchFollowupFieldAction(input: {
       if (error) throw new Error(error.message);
     }
 
-    await logActivity({
+    void logActivity({
       actorId: ctx.userId,
       action: "FOLLOWUP_UPDATED",
       module: "followups",
@@ -657,20 +666,50 @@ export async function patchFollowupFieldAction(input: {
       input.field === "notes" ||
       input.field === "customer_name"
     ) {
-      await syncFollowupsIntoReminders();
+      // Reminder sync is secondary — do not block the save response.
+      syncFollowupsIntoRemindersAfterResponse();
     }
 
-    revalidateFollowupPaths(customerId, inquiryId);
-    if (existing.customer_id !== customerId) {
-      revalidateFollowupPaths(existing.customer_id, existing.inquiry_id);
+    const needsWideRevalidate =
+      input.field === "mobile" ||
+      input.field === "customer_id" ||
+      input.field === "inquiry_id" ||
+      input.field === "product_id" ||
+      input.field === "product_purchased" ||
+      input.field === "customer_type" ||
+      input.field === "customer_name";
+
+    if (needsWideRevalidate) {
+      revalidateFollowupPaths(customerId, inquiryId);
+      if (existing.customer_id !== customerId) {
+        revalidateFollowupPaths(existing.customer_id, existing.inquiry_id);
+      }
+    } else {
+      revalidatePath("/follow-ups");
     }
 
-    const refreshed = await getFollowupById(input.followupId);
+    // Refetch only when nested inquiry/customer joins may have changed.
+    const needsRefetch =
+      input.field === "mobile" ||
+      input.field === "customer_id" ||
+      input.field === "inquiry_id" ||
+      input.field === "product_id" ||
+      input.field === "product_purchased" ||
+      input.field === "customer_type" ||
+      input.field === "customer_name";
+
+    const followup = needsRefetch
+      ? ((await getFollowupById(input.followupId)) ?? undefined)
+      : ({
+          ...existing,
+          ...patch,
+        } as FollowupWithRelations);
+
     return {
       success: "Saved",
       followupId: input.followupId,
       customerCreated,
-      followup: refreshed ?? undefined,
+      followup,
     };
   } catch (error) {
     return toActionError(error);
@@ -735,7 +774,7 @@ export async function createFollowupGridRowAction(input: {
       });
     }
 
-    await syncFollowupsIntoReminders();
+    syncFollowupsIntoRemindersAfterResponse();
     revalidateFollowupPaths(customerId, inquiryRaw);
     const refreshed = await getFollowupById(followupId);
     return {

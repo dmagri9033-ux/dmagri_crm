@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { customerNameHasDigits } from "@/lib/customers/customer-name";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
 import { CUSTOMER_TYPES } from "@/validations/customer";
 
@@ -17,6 +18,9 @@ export const inquiryFormSchema = z.object({
     .string()
     .trim()
     .max(120, "Name is too long")
+    .refine((value) => !value || !customerNameHasDigits(value), {
+      message: "Customer name cannot include numbers",
+    })
     .optional()
     .or(z.literal("")),
   inquiry_date: z.string().optional().or(z.literal("")),
@@ -41,7 +45,7 @@ export const inquiryFilterSchema = z.object({
   purchased: z.enum(["all", "yes", "no"]).optional().default("all"),
   status: z.enum(inquiryStatusFilterValues).optional().default("open"),
   page: z.coerce.number().int().min(1).optional().default(1),
-  pageSize: z.coerce.number().int().min(5).max(200).optional().default(100),
+  pageSize: z.coerce.number().int().min(5).max(100).optional().default(25),
 });
 
 export type InquiryFormInput = z.infer<typeof inquiryFormSchema>;

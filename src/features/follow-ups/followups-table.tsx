@@ -24,6 +24,7 @@ import { usePermissions } from "@/components/providers/permissions-provider";
 import { Button } from "@/components/ui/button";
 import type { FollowupInquiryOption } from "@/features/follow-ups/followup-form";
 import { FollowupStatusActions } from "@/features/follow-ups/followup-status-actions";
+import { stripDigitsFromCustomerName } from "@/lib/customers/customer-name";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
 import type { FollowupWithRelations } from "@/lib/db/followups";
 import type { Product } from "@/lib/db/products";
@@ -225,12 +226,14 @@ function FollowupEditableRow({
           value={customerName}
           disabled={!editable}
           placeholder="Customer name"
+          inputMode="text"
+          autoComplete="name"
           onFocus={() => {
             editingFieldRef.current = "customer_name";
           }}
           onChange={(e) => {
             nameDirtyRef.current = true;
-            setCustomerName(e.target.value);
+            setCustomerName(stripDigitsFromCustomerName(e.target.value));
           }}
           onBlur={() => {
             editingFieldRef.current = null;

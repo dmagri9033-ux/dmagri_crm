@@ -33,6 +33,7 @@ import { CopyMobileButton } from "@/components/shared/copy-mobile-button";
 import { WhatsAppMessageButton } from "@/components/shared/whatsapp-message-button";
 import { InquiryStatusActions } from "@/features/inquiries/inquiry-status-actions";
 import { CreateFollowupDialog } from "@/features/follow-ups/create-followup-dialog";
+import { stripDigitsFromCustomerName } from "@/lib/customers/customer-name";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
 import { cn } from "@/lib/utils";
 import type { Customer } from "@/lib/db/customers";
@@ -104,7 +105,6 @@ function SaveIndicator({ state, error }: { state: SaveState; error?: string }) {
 
 function InquiryEditableRow({
   inquiry,
-  customers,
   products,
   canUpdate,
   hideOnComplete,
@@ -113,7 +113,6 @@ function InquiryEditableRow({
   onRemoved,
 }: {
   inquiry: InquiryWithRelations;
-  customers: Customer[];
   products: Product[];
   canUpdate: boolean;
   hideOnComplete: boolean;
@@ -264,12 +263,14 @@ function InquiryEditableRow({
           value={customerName}
           disabled={!editable}
           placeholder="Customer name"
+          inputMode="text"
+          autoComplete="name"
           onFocus={() => {
             editingFieldRef.current = "customer_name";
           }}
           onChange={(e) => {
             nameDirtyRef.current = true;
-            setCustomerName(e.target.value);
+            setCustomerName(stripDigitsFromCustomerName(e.target.value));
           }}
           onBlur={() => {
             editingFieldRef.current = null;
@@ -416,7 +417,11 @@ function InquiryEditableRow({
           <SaveIndicator state={saveState} error={error} />
           {!isCompleted ? (
             <CreateFollowupDialog
-              customers={customers}
+              customers={
+                inquiry.customers
+                  ? ([inquiry.customers] as Customer[])
+                  : []
+              }
               inquiries={[
                 {
                   id: inquiry.id,
@@ -565,7 +570,11 @@ function NewInquiryRow({
           className={cn(cellInputClass, "min-w-[7rem] font-medium")}
           value={customerName}
           placeholder="Customer name"
-          onChange={(e) => setCustomerName(e.target.value)}
+          inputMode="text"
+          autoComplete="name"
+          onChange={(e) =>
+            setCustomerName(stripDigitsFromCustomerName(e.target.value))
+          }
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -671,12 +680,10 @@ function NewInquiryRow({
 
 export function InquiriesTable({
   inquiries: initialInquiries,
-  customers,
   products: initialProducts,
   filters,
 }: {
   inquiries: InquiryWithRelations[];
-  customers: Customer[];
   products: Product[];
   filters: Partial<InquiryFilterInput>;
 }) {
@@ -753,7 +760,6 @@ export function InquiriesTable({
                 <InquiryEditableRow
                   key={inquiry.id}
                   inquiry={inquiry}
-                  customers={customers}
                   products={products}
                   canUpdate={canUpdate}
                   hideOnComplete={hideOnComplete}

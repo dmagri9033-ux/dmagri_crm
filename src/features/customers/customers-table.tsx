@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { CopyMobileButton } from "@/components/shared/copy-mobile-button";
 import { WhatsAppMessageButton } from "@/components/shared/whatsapp-message-button";
 import { DeleteCustomerButton } from "@/features/customers/delete-customer-button";
+import { stripDigitsFromCustomerName } from "@/lib/customers/customer-name";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
 import type { CustomerWithProduct } from "@/lib/db/customers";
 import type { Product } from "@/lib/db/products";
@@ -183,7 +184,7 @@ function CustomerEditableRow({
           }}
           onChange={(e) => {
             nameDirtyRef.current = true;
-            setName(e.target.value);
+            setName(stripDigitsFromCustomerName(e.target.value));
           }}
           onBlur={() => {
             editingNameRef.current = false;
@@ -403,7 +404,11 @@ function NewCustomerRow({
           className={cn(gridCellInputClass, "min-w-[10rem] font-medium")}
           value={name}
           placeholder="Name (optional)"
-          onChange={(e) => setName(e.target.value)}
+          inputMode="text"
+          autoComplete="name"
+          onChange={(e) =>
+            setName(stripDigitsFromCustomerName(e.target.value))
+          }
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

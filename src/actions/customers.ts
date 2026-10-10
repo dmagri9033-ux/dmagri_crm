@@ -303,7 +303,11 @@ export async function patchCustomerFieldAction(input: {
 
     if (input.field === "name") {
       const name = input.value.trim();
-      if (name.length < 2) return { error: "Name must be at least 2 characters" };
+      if (/\d/.test(name)) {
+        return { error: "Customer name cannot include numbers" };
+      }
+      if (name.length > 120) return { error: "Name is too long" };
+      // Allow blank names — do not require or auto-fill.
       patch.name = name;
     } else if (input.field === "mobile") {
       const mobileNormalized = normalizeMobile(input.value);
@@ -366,7 +370,7 @@ export async function patchCustomerFieldAction(input: {
 
     revalidatePath("/customers");
     revalidatePath(`/customers/${input.customerId}`);
-    await logActivity({
+    void logActivity({
       actorId: ctx.userId,
       action: "CUSTOMER_UPDATED",
       module: "customers",
@@ -376,11 +380,33 @@ export async function patchCustomerFieldAction(input: {
       metadata: { field: input.field, via: "grid" },
     });
 
-    const customer = await getCustomerById(input.customerId);
+    // Avoid a second round-trip — merge local state for the grid.
+    let products = existing.products;
+    if (input.field === "primary_product_id") {
+      const productId = patch.primary_product_id ?? null;
+      if (!productId) {
+        products = null;
+      } else if (existing.products?.id === productId) {
+        products = existing.products;
+      } else {
+        const { data: product } = await supabase
+          .from("products")
+          .select("id, name, is_active")
+          .eq("id", productId)
+          .maybeSingle();
+        products = product ?? null;
+      }
+    }
+
+    const customer: CustomerWithProduct = {
+      ...existing,
+      ...patch,
+      products,
+    };
     return {
       success: "Saved",
       customerId: input.customerId,
-      customer: customer ?? undefined,
+      customer,
     };
   } catch (error) {
     return toActionError(error);
@@ -410,11 +436,11 @@ export async function createCustomerGridRowAction(input: {
       };
     }
 
-    const nameRaw = (input.name ?? "").trim();
-    const name =
-      nameRaw.length >= 2
-        ? nameRaw
-        : `Customer ${mobile.replace(/\D/g, "").slice(-10)}`;
+    // Keep name blank when not provided — never invent "Customer {mobile}".
+    const name = (input.name ?? "").trim();
+    if (/\d/.test(name)) {
+      return { error: "Customer name cannot include numbers" };
+    }
 
     const typeRaw = (input.customer_type || "").trim();
     let customerType: string | null = null;

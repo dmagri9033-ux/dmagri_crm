@@ -60,7 +60,8 @@ async function resolveCustomerForReminder(input: {
   }
 
   const supabase = await createClient();
-  const name = `Customer ${input.mobile.replace(/\D/g, "").slice(-10)}`;
+  // Keep name blank when not provided — never invent "Customer {mobile}".
+  const name = "";
 
   const { data, error } = await supabase
     .from("customers")

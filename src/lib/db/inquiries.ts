@@ -45,6 +45,13 @@ function mapInquiry(row: never): InquiryWithRelations {
   };
 }
 
+/** Lighter join for list/grid — omit created_by_profile (unused in tables). */
+const INQUIRY_LIST_SELECT = `
+  *,
+  customers:customer_id ( id, name, mobile, mobile_normalized, customer_type ),
+  products:product_id ( id, name, is_active )
+`;
+
 const INQUIRY_SELECT = `
   *,
   customers:customer_id ( id, name, mobile, mobile_normalized, customer_type ),
@@ -63,7 +70,7 @@ export async function listInquiries(
 
   let query = supabase
     .from("inquiries")
-    .select(INQUIRY_SELECT, { count: "exact" })
+    .select(INQUIRY_LIST_SELECT, { count: "exact" })
     .is("deleted_at", null);
 
   if (filters.search) {
@@ -155,6 +162,23 @@ export async function getInquiryById(
   const { data, error } = await supabase
     .from("inquiries")
     .select(INQUIRY_SELECT)
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return mapInquiry(data as never);
+}
+
+/** Grid save path — same joins as list (no creator profile). */
+export async function getInquiryForGrid(
+  id: string,
+): Promise<InquiryWithRelations | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("inquiries")
+    .select(INQUIRY_LIST_SELECT)
     .eq("id", id)
     .is("deleted_at", null)
     .maybeSingle();

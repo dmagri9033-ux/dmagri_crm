@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { stripDigitsFromCustomerName } from "@/lib/customers/customer-name";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
 import type { InquiryWithRelations } from "@/lib/db/inquiries";
 import type { Product } from "@/lib/db/products";
@@ -153,7 +154,11 @@ export function InquiryForm({
           id="customer_name"
           name="customer_name"
           value={customerName}
-          onChange={(e) => setCustomerName(e.target.value)}
+          inputMode="text"
+          autoComplete="name"
+          onChange={(e) =>
+            setCustomerName(stripDigitsFromCustomerName(e.target.value))
+          }
           placeholder={
             matchedCustomer
               ? matchedCustomer.name

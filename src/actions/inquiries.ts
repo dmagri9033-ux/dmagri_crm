@@ -9,11 +9,12 @@ import { findCustomerByNormalizedMobile } from "@/lib/db/customers";
 import {
   createInquiryRecord,
   getInquiryById,
+  getInquiryForGrid,
   listInquiries,
   syncInquiryPurchase,
   type InquiryWithRelations,
 } from "@/lib/db/inquiries";
-import { listProducts } from "@/lib/db/products";
+import { listActiveProducts } from "@/lib/db/products";
 import type { Product } from "@/lib/db/products";
 import { createClient } from "@/lib/supabase/server";
 import { inquiryFilterSchema, inquiryFormSchema } from "@/validations/inquiry";
@@ -25,11 +26,38 @@ export type InquiryActionState = {
   customerCreated?: boolean;
 };
 
-function revalidateInquiryPaths(customerId?: string | null) {
+function revalidateInquiryPaths(
+  customerId?: string | null,
+  options?: { touchCustomersList?: boolean },
+) {
   revalidatePath("/inquiries");
-  revalidatePath("/customers");
+  if (options?.touchCustomersList !== false) {
+    revalidatePath("/customers");
+  }
   if (customerId) {
     revalidatePath(`/customers/${customerId}`);
+  }
+}
+
+/** Grid patches: only refresh customer list when master customer data changed. */
+function revalidateAfterInquiryFieldPatch(
+  field: string,
+  customerId: string | null,
+  previousCustomerId?: string | null,
+) {
+  revalidatePath("/inquiries");
+  const touchesCustomerMaster =
+    field === "customer_name" ||
+    field === "mobile" ||
+    field === "customer_type" ||
+    field === "product_id" ||
+    field === "product_purchased";
+  if (touchesCustomerMaster) {
+    revalidatePath("/customers");
+    if (customerId) revalidatePath(`/customers/${customerId}`);
+    if (previousCustomerId && previousCustomerId !== customerId) {
+      revalidatePath(`/customers/${previousCustomerId}`);
+    }
   }
 }
 
@@ -72,9 +100,12 @@ async function resolveCustomerForInquiry(input: {
   }
 
   const supabase = await createClient();
-  const name =
-    input.customerName?.trim() ||
-    `Customer ${input.mobile.replace(/\D/g, "").slice(-10)}`;
+  // Keep name blank when not provided — never invent "Customer {mobile}".
+  const rawName = input.customerName?.trim() || "";
+  if (/\d/.test(rawName)) {
+    throw new Error("Customer name cannot include numbers");
+  }
+  const name = rawName;
 
   const { data, error } = await supabase
     .from("customers")
@@ -441,12 +472,14 @@ export async function patchInquiryFieldAction(input: {
 }): Promise<InquiryPatchResult> {
   try {
     const ctx = await authorize("inquiry.update");
-    const existing = await getInquiryById(input.inquiryId);
+    const existing = await getInquiryForGrid(input.inquiryId);
     if (!existing) return { error: "Inquiry not found" };
 
     const supabase = await createClient();
     let customerId = existing.customer_id;
     let customerCreated = false;
+    let nextCustomerLite = existing.customers;
+    let nextProductLite = existing.products;
 
     const patch: {
       inquiry_date?: string;
@@ -465,7 +498,9 @@ export async function patchInquiryFieldAction(input: {
       patch.inquiry_date = date;
     } else if (input.field === "customer_name") {
       const name = input.value.trim();
-      if (!name) return { error: "Customer name is required" };
+      if (/\d/.test(name)) {
+        return { error: "Customer name cannot include numbers" };
+      }
       if (name.length > 120) return { error: "Name is too long" };
 
       const { error: customerError } = await supabase
@@ -476,6 +511,9 @@ export async function patchInquiryFieldAction(input: {
       if (customerError) throw new Error(customerError.message);
 
       patch.customer_name_snapshot = name;
+      if (nextCustomerLite) {
+        nextCustomerLite = { ...nextCustomerLite, name };
+      }
     } else if (input.field === "mobile") {
       const { customerId: nextId, created } = await resolveCustomerForInquiry({
         userId: ctx.userId,
@@ -486,7 +524,7 @@ export async function patchInquiryFieldAction(input: {
       customerCreated = created;
       const { data: customer } = await supabase
         .from("customers")
-        .select("name, mobile, customer_type")
+        .select("id, name, mobile, mobile_normalized, customer_type")
         .eq("id", nextId)
         .maybeSingle();
       if (!customer) return { error: "Customer not found" };
@@ -496,21 +534,36 @@ export async function patchInquiryFieldAction(input: {
       if (!existing.customer_type && customer.customer_type) {
         patch.customer_type = customer.customer_type;
       }
+      nextCustomerLite = customer;
     } else if (input.field === "customer_type") {
       patch.customer_type = input.value.trim() || null;
+      if (nextCustomerLite) {
+        nextCustomerLite = {
+          ...nextCustomerLite,
+          customer_type: patch.customer_type,
+        };
+      }
     } else if (input.field === "product_id") {
       const productId = input.value.trim() || null;
       patch.product_id = productId;
       if (!productId) {
         patch.product_name_snapshot = null;
         patch.product_purchased = false;
+        nextProductLite = null;
       } else {
         const { data: product } = await supabase
           .from("products")
-          .select("name")
+          .select("id, name, is_active")
           .eq("id", productId)
           .maybeSingle();
         patch.product_name_snapshot = product?.name ?? null;
+        nextProductLite = product
+          ? {
+              id: product.id,
+              name: product.name,
+              is_active: product.is_active,
+            }
+          : null;
       }
     } else if (input.field === "product_purchased") {
       const purchased = input.value === "true" || input.value === "yes";
@@ -537,26 +590,33 @@ export async function patchInquiryFieldAction(input: {
     const nextProductId =
       patch.product_id !== undefined ? patch.product_id : existing.product_id;
     const nextDate = patch.inquiry_date ?? existing.inquiry_date;
+    const purchaseRelevant =
+      input.field === "product_id" ||
+      input.field === "product_purchased" ||
+      input.field === "inquiry_date" ||
+      (input.field === "mobile" && existing.product_purchased);
 
-    if (nextProductId) {
-      await syncInquiryPurchase({
-        inquiryId: input.inquiryId,
-        customerId,
-        productId: nextProductId,
-        purchased: Boolean(nextPurchased),
-        purchasedAt: nextDate,
-      });
-    } else if (existing.product_id && existing.product_purchased) {
-      await syncInquiryPurchase({
-        inquiryId: input.inquiryId,
-        customerId: existing.customer_id,
-        productId: existing.product_id,
-        purchased: false,
-        purchasedAt: nextDate,
-      });
+    if (purchaseRelevant) {
+      if (nextProductId) {
+        await syncInquiryPurchase({
+          inquiryId: input.inquiryId,
+          customerId,
+          productId: nextProductId,
+          purchased: Boolean(nextPurchased),
+          purchasedAt: nextDate,
+        });
+      } else if (existing.product_id && existing.product_purchased) {
+        await syncInquiryPurchase({
+          inquiryId: input.inquiryId,
+          customerId: existing.customer_id,
+          productId: existing.product_id,
+          purchased: false,
+          purchasedAt: nextDate,
+        });
+      }
     }
 
-    await logActivity({
+    void logActivity({
       actorId: ctx.userId,
       action: "INQUIRY_UPDATED",
       module: "inquiries",
@@ -566,18 +626,24 @@ export async function patchInquiryFieldAction(input: {
       metadata: { field: input.field, via: "grid" },
     });
 
-    revalidateInquiryPaths(customerId);
-    if (existing.customer_id !== customerId) {
-      revalidateInquiryPaths(existing.customer_id);
-    }
+    revalidateAfterInquiryFieldPatch(
+      input.field,
+      customerId,
+      existing.customer_id,
+    );
 
-    const refreshed = await getInquiryById(input.inquiryId);
+    const inquiry: InquiryWithRelations = {
+      ...existing,
+      ...patch,
+      customers: nextCustomerLite,
+      products: nextProductLite,
+    };
 
     return {
       success: "Saved",
       inquiryId: input.inquiryId,
       customerCreated,
-      inquiry: refreshed ?? undefined,
+      inquiry,
     };
   } catch (error) {
     return toActionError(error);
@@ -591,13 +657,13 @@ export async function loadInquiriesGridAction(
   try {
     await authorize("inquiry.view");
     const filters = inquiryFilterSchema.parse(rawFilters);
-    const [result, productsResult] = await Promise.all([
+    const [result, products] = await Promise.all([
       listInquiries(filters),
-      listProducts({ status: "all", pageSize: 100, page: 1 }),
+      listActiveProducts(),
     ]);
     return {
       inquiries: result.inquiries,
-      products: productsResult.products,
+      products,
       total: result.total,
     };
   } catch (error) {
@@ -656,7 +722,7 @@ export async function createInquiryGridRowAction(input: {
       remarks: input.remarks?.trim() || null,
     });
 
-    await logActivity({
+    void logActivity({
       actorId: ctx.userId,
       action: "INQUIRY_CREATED",
       module: "inquiries",

@@ -6,7 +6,7 @@ import { FollowupsTable } from "@/features/follow-ups/followups-table";
 import { PageForbidden } from "@/components/shared/page-forbidden";
 import { listCustomers } from "@/lib/db/customers";
 import { listFollowups } from "@/lib/db/followups";
-import { listProducts } from "@/lib/db/products";
+import { listActiveProducts } from "@/lib/db/products";
 import { requirePagePermission } from "@/lib/rbac/require-page-permission";
 import { followupFilterSchema } from "@/validations/followup";
 
@@ -33,11 +33,11 @@ export default async function FollowUpsPage({
     page: typeof raw.page === "string" ? raw.page : "1",
   });
 
-  const [result, customersResult, productsResult] = await Promise.all([
+  const [result, customersResult, products] = await Promise.all([
     listFollowups(filters),
     // Filter dropdown only — keep payload small.
     listCustomers({ pageSize: 50, page: 1 }),
-    listProducts({ status: "active", pageSize: 100 }),
+    listActiveProducts(),
   ]);
 
   return (
@@ -75,7 +75,7 @@ export default async function FollowUpsPage({
 
       <FollowupsTable
         followups={result.followups}
-        products={productsResult.products}
+        products={products}
         filters={filters}
       />
 

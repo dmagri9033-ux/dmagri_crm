@@ -1,15 +1,22 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { logActivity } from "@/lib/activity/log";
 import { authorize } from "@/lib/rbac/authorize";
 import { toActionError } from "@/lib/rbac/errors";
 import {
+  ACTIVE_PRODUCTS_CACHE_TAG,
   getProductById,
   getProductReferenceCounts,
   listProducts,
   type Product,
 } from "@/lib/db/products";
+
+function revalidateProductCaches() {
+  revalidatePath("/products");
+  // Immediate expire so pickers on inquiries/customers see new products on Vercel.
+  updateTag(ACTIVE_PRODUCTS_CACHE_TAG);
+}
 import { createClient } from "@/lib/supabase/server";
 import {
   productFilterSchema,
@@ -74,7 +81,7 @@ export async function createProductAction(
       metadata: { name: parsed.data.name },
     });
 
-    revalidatePath("/products");
+    revalidateProductCaches();
     return { success: "Product created.", productId: data.id };
   } catch (error) {
     return toActionError(error);
@@ -126,7 +133,7 @@ export async function updateProductAction(
       metadata: { name: parsed.data.name, is_active: parsed.data.is_active },
     });
 
-    revalidatePath("/products");
+    revalidateProductCaches();
     return { success: "Product updated.", productId };
   } catch (error) {
     return toActionError(error);
@@ -163,7 +170,7 @@ export async function setProductActiveAction(
       metadata: { is_active: nextActive, via: "toggle_active" },
     });
 
-    revalidatePath("/products");
+    revalidateProductCaches();
     return {
       success: nextActive ? "Product activated." : "Product deactivated.",
       productId,
@@ -210,7 +217,7 @@ export async function deleteProductAction(
       entityId: productId,
     });
 
-    revalidatePath("/products");
+    revalidateProductCaches();
     return { success: "Product deleted." };
   } catch (error) {
     return toActionError(error);
@@ -273,7 +280,7 @@ export async function patchProductFieldAction(input: {
       metadata: { field: input.field, via: "grid" },
     });
 
-    revalidatePath("/products");
+    revalidateProductCaches();
     const product = await getProductById(input.productId);
     return { success: "Saved", productId: input.productId, product: product ?? undefined };
   } catch (error) {
@@ -316,7 +323,7 @@ export async function createProductGridRowAction(input: {
       metadata: { via: "grid", name },
     });
 
-    revalidatePath("/products");
+    revalidateProductCaches();
     return { success: "Row added.", productId: data.id, product: data };
   } catch (error) {
     return toActionError(error);

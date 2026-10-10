@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { stripDigitsFromCustomerName } from "@/lib/customers/customer-name";
 import type { Product } from "@/lib/db/products";
 import type { CustomerWithProduct } from "@/lib/db/customers";
 import { CUSTOMER_TYPES } from "@/validations/customer";
@@ -49,6 +50,7 @@ export function CustomerForm({
   const [purchased, setPurchased] = useState(customer?.product_purchased ?? false);
   const [followUp, setFollowUp] = useState(customer?.follow_up_required ?? false);
   const [updateExisting, setUpdateExisting] = useState(false);
+  const [name, setName] = useState(customer?.name ?? "");
 
   // Include inactive current product in edit picker so historical selection stays visible
   const productOptions = [...products];
@@ -159,7 +161,12 @@ export function CustomerForm({
             id="name"
             name="name"
             required
-            defaultValue={customer?.name ?? ""}
+            value={name}
+            inputMode="text"
+            autoComplete="name"
+            onChange={(e) =>
+              setName(stripDigitsFromCustomerName(e.target.value))
+            }
             placeholder="Full name"
           />
         </div>

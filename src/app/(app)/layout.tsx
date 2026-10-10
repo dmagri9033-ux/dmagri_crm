@@ -8,13 +8,15 @@ import { ensureReminderAlertsFresh } from "@/lib/notifications/ensure-reminder-a
 import { getSessionContext } from "@/lib/rbac/authorize";
 import { UnauthorizedError } from "@/lib/rbac/errors";
 import type { PermissionCode } from "@/lib/rbac/permissions";
+import { afterResponse } from "@/lib/server/after-response";
 import { createClient } from "@/lib/supabase/server";
 
+/** Keep serverless functions in Mumbai — same region as typical Supabase (ap-south-1). */
+export const preferredRegion = ["bom1"];
+
 async function LayoutNotifications() {
-  // Do not block the UI on reminder sync — throttle runs in the background.
-  void ensureReminderAlertsFresh().catch((error) => {
-    console.error("ensureReminderAlertsFresh failed:", error);
-  });
+  // Vercel-safe background sync (after() / waitUntil) — does not block notifications.
+  afterResponse(() => ensureReminderAlertsFresh());
   const data = await listMyNotifications(25);
   return (
     <NotificationBell

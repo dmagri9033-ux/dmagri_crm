@@ -5,7 +5,7 @@ import { CustomersPagination } from "@/features/customers/customers-pagination";
 import { CustomersTable } from "@/features/customers/customers-table";
 import { PageForbidden } from "@/components/shared/page-forbidden";
 import { listCustomers } from "@/lib/db/customers";
-import { listActiveProducts, listProducts } from "@/lib/db/products";
+import { listActiveProducts } from "@/lib/db/products";
 import { requirePagePermission } from "@/lib/rbac/require-page-permission";
 import { customerFilterSchema } from "@/validations/customer";
 
@@ -30,13 +30,12 @@ export default async function CustomersPage({
     page: typeof raw.page === "string" ? raw.page : "1",
   });
 
-  const [result, activeProducts, allProductsPage] = await Promise.all([
+  const [result, activeProducts] = await Promise.all([
     listCustomers(filters),
     listActiveProducts(),
-    listProducts({ status: "all", pageSize: 100 }),
   ]);
 
-  const filterProducts = allProductsPage.products;
+  const filterProducts = activeProducts;
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">

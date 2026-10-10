@@ -51,6 +51,8 @@ export function validateInquiryImportRows(
     const customerName = mapped.customer_name;
     if (!customerName || customerName.length < 2) {
       errors.push("Customer name is required");
+    } else if (/\d/.test(customerName)) {
+      errors.push("Customer name cannot include numbers");
     }
 
     const mobileNorm = normalizeMobile(mapped.mobile);
@@ -115,6 +117,8 @@ export function validateCustomerImportRows(
     const name = mapped.name;
     if (!name || name.length < 2) {
       errors.push("Customer name is required (min 2 characters)");
+    } else if (/\d/.test(name)) {
+      errors.push("Customer name cannot include numbers");
     }
 
     const mobileNorm = normalizeMobile(mapped.mobile);

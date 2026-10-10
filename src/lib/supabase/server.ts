@@ -28,5 +28,11 @@ export async function createClient() {
         }
       },
     },
+    // Avoid Next.js fetch caching of PostgREST GETs on Vercel (stale/slow cold paths).
+    global: {
+      fetch(input, init) {
+        return fetch(input, { ...init, cache: "no-store" });
+      },
+    },
   });
 }

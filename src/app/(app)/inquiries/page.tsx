@@ -4,9 +4,8 @@ import { InquiryFilters } from "@/features/inquiries/inquiry-filters";
 import { InquiriesPagination } from "@/features/inquiries/inquiries-pagination";
 import { InquiriesTable } from "@/features/inquiries/inquiries-table";
 import { PageForbidden } from "@/components/shared/page-forbidden";
-import { listCustomers } from "@/lib/db/customers";
 import { listInquiries } from "@/lib/db/inquiries";
-import { listProducts } from "@/lib/db/products";
+import { listActiveProducts } from "@/lib/db/products";
 import { requirePagePermission } from "@/lib/rbac/require-page-permission";
 import { inquiryFilterSchema } from "@/validations/inquiry";
 
@@ -32,10 +31,9 @@ export default async function InquiriesPage({
     page: typeof raw.page === "string" ? raw.page : "1",
   });
 
-  const [result, customersResult, allProducts] = await Promise.all([
+  const [result, allProducts] = await Promise.all([
     listInquiries(filters),
-    listCustomers({ pageSize: 100, page: 1 }),
-    listProducts({ status: "all", pageSize: 100 }),
+    listActiveProducts(),
   ]);
 
   return (
@@ -49,7 +47,7 @@ export default async function InquiriesPage({
           productId={filters.productId}
           purchased={filters.purchased}
           status={filters.status}
-          products={allProducts.products}
+          products={allProducts}
           heading={
             <h2 className="text-xl font-semibold tracking-tight">Inquiries</h2>
           }
@@ -75,8 +73,7 @@ export default async function InquiriesPage({
 
       <InquiriesTable
         inquiries={result.inquiries}
-        customers={customersResult.customers}
-        products={allProducts.products}
+        products={allProducts}
         filters={filters}
       />
 

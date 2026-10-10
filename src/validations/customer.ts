@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { customerNameHasDigits } from "@/lib/customers/customer-name";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
 
 export const CUSTOMER_TYPES = ["farmer", "dealer", "distributor", "other"] as const;
@@ -9,7 +10,10 @@ export const customerFormSchema = z.object({
     .string()
     .trim()
     .min(2, "Name must be at least 2 characters")
-    .max(120, "Name is too long"),
+    .max(120, "Name is too long")
+    .refine((value) => !customerNameHasDigits(value), {
+      message: "Customer name cannot include numbers",
+    }),
   mobile: z
     .string()
     .trim()

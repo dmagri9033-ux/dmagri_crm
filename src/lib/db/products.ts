@@ -1,10 +1,15 @@
+import { unstable_cache } from "next/cache";
 import { collectPagesForExport } from "@/lib/db/export-pages";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database.types";
 import {
   productFilterSchema,
   type ProductFilterInput,
 } from "@/validations/product";
+
+/** Cache tag — revalidate on product create/update/delete. */
+export const ACTIVE_PRODUCTS_CACHE_TAG = "active-products";
 
 export type Product = Tables<"products">;
 
@@ -72,18 +77,29 @@ export async function listProductsForExport(
   });
 }
 
-/** Active, non-deleted products for inquiry/customer pickers. */
+/**
+ * Active products for pickers/filters.
+ * Cross-request cache (Vercel Data Cache) — avoids a DB round-trip on every
+ * inquiries/customers/follow-ups page load. Invalidated via ACTIVE_PRODUCTS_CACHE_TAG.
+ */
 export async function listActiveProducts(): Promise<Product[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select("*")
-    .is("deleted_at", null)
-    .eq("is_active", true)
-    .order("name", { ascending: true });
+  return unstable_cache(
+    async () => {
+      // Admin client: unstable_cache cannot use request cookies().
+      const supabase = createAdminClient();
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name, is_active, created_at, updated_at, deleted_at")
+        .is("deleted_at", null)
+        .eq("is_active", true)
+        .order("name", { ascending: true });
 
-  if (error) throw new Error(error.message);
-  return data ?? [];
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+    ["active-products-v1"],
+    { revalidate: 300, tags: [ACTIVE_PRODUCTS_CACHE_TAG] },
+  )();
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
