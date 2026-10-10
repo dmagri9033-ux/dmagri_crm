@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { CreateTemplateDialog } from "@/features/templates/create-template-dialog";
 import { TemplateFilters } from "@/features/templates/template-filters";
 import { TemplatesPagination } from "@/features/templates/templates-pagination";
 import { TemplatesTable } from "@/features/templates/templates-table";
@@ -37,6 +38,7 @@ export default async function TemplatesPage({
               WhatsApp templates
             </h2>
           }
+          actions={<CreateTemplateDialog />}
         />
       </Suspense>
 

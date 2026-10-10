@@ -11,11 +11,10 @@ import type { PermissionCode } from "@/lib/rbac/permissions";
 import { createClient } from "@/lib/supabase/server";
 
 async function LayoutNotifications() {
-  try {
-    await ensureReminderAlertsFresh();
-  } catch (error) {
+  // Do not block the UI on reminder sync — throttle runs in the background.
+  void ensureReminderAlertsFresh().catch((error) => {
     console.error("ensureReminderAlertsFresh failed:", error);
-  }
+  });
   const data = await listMyNotifications(25);
   return (
     <NotificationBell

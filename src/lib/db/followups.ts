@@ -14,7 +14,13 @@ export type CustomerLite = Pick<
 >;
 export type InquiryLite = Pick<
   Tables<"inquiries">,
-  "id" | "inquiry_date" | "product_name_snapshot" | "customer_id"
+  | "id"
+  | "inquiry_date"
+  | "product_name_snapshot"
+  | "customer_id"
+  | "customer_type"
+  | "product_id"
+  | "product_purchased"
 >;
 
 export type FollowupWithRelations = Tables<"followups"> & {
@@ -39,7 +45,7 @@ function mapFollowup(row: never): FollowupWithRelations {
   const r = row as Tables<"followups"> & {
     customers: CustomerLite | CustomerLite[] | null;
     inquiries: InquiryLite | InquiryLite[] | null;
-    created_by_profile: ProfileLite | ProfileLite[] | null;
+    created_by_profile?: ProfileLite | ProfileLite[] | null;
   };
   return {
     ...r,
@@ -52,7 +58,15 @@ function mapFollowup(row: never): FollowupWithRelations {
 const FOLLOWUP_SELECT = `
   *,
   customers:customer_id ( id, name, mobile, mobile_normalized, customer_type ),
-  inquiries:inquiry_id ( id, inquiry_date, product_name_snapshot, customer_id ),
+  inquiries:inquiry_id (
+    id,
+    inquiry_date,
+    product_name_snapshot,
+    customer_id,
+    customer_type,
+    product_id,
+    product_purchased
+  ),
   created_by_profile:created_by ( id, display_name, email )
 `;
 

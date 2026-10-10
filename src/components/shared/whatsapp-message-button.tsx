@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Download, ExternalLink } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { loadWhatsAppTemplateOptionsAction } from "@/actions/templates";
 import { sendWhatsAppMessageAction } from "@/actions/whatsapp";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
 import { cn } from "@/lib/utils";
+
+const ADD_TEMPLATE_VALUE = "__add_template__";
+
+type TemplateOption = {
+  id: string;
+  name: string;
+  content: string;
+  imageUrl: string | null;
+};
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -44,26 +53,33 @@ export function WhatsAppMessageButton({
   defaultMessage?: string;
   className?: string;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState(defaultMessage);
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
-  const [templateOptions, setTemplateOptions] = useState<
-    { id: string; name: string; content: string; imageUrl: string | null }[]
-  >([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templateOptions, setTemplateOptions] = useState<TemplateOption[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
 
   const valid = Boolean(normalizeMobile(mobile));
-  const selectedTemplate = templateOptions.find(
-    (t) => t.id === selectedTemplateId,
-  );
-  const selectedImageUrl = selectedTemplate?.imageUrl ?? null;
+  const fieldId = customerId ?? inquiryId ?? "new";
 
   useEffect(() => {
     if (!open) return;
-    void loadWhatsAppTemplateOptionsAction().then((result) => {
-      if (result.templates) setTemplateOptions(result.templates);
-    });
+    let cancelled = false;
+    setTemplatesLoading(true);
+    void loadWhatsAppTemplateOptionsAction()
+      .then((result) => {
+        if (cancelled) return;
+        setTemplateOptions(result.templates ?? []);
+      })
+      .finally(() => {
+        if (!cancelled) setTemplatesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   function handleOpen() {
@@ -73,31 +89,19 @@ export function WhatsAppMessageButton({
     setOpen(true);
   }
 
-  function applyTemplate(templateId: string) {
-    setSelectedTemplateId(templateId);
-    if (!templateId) {
+  function onTemplateChange(value: string) {
+    if (value === ADD_TEMPLATE_VALUE) {
+      setOpen(false);
+      router.push("/templates");
+      return;
+    }
+    setSelectedTemplateId(value);
+    if (!value) {
       setMessage(defaultMessage);
       return;
     }
-    const picked = templateOptions.find((t) => t.id === templateId);
+    const picked = templateOptions.find((t) => t.id === value);
     if (picked) setMessage(picked.content);
-  }
-
-  function openTemplateImage() {
-    if (!selectedImageUrl) return;
-    window.open(selectedImageUrl, "_blank", "noopener,noreferrer");
-  }
-
-  function downloadTemplateImage() {
-    if (!selectedImageUrl) return;
-    const link = document.createElement("a");
-    link.href = selectedImageUrl;
-    link.download = `${selectedTemplate?.name?.trim() || "whatsapp-template"}.jpg`;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
   }
 
   function handleSend() {
@@ -118,13 +122,6 @@ export function WhatsAppMessageButton({
 
       if (result.openUrl) {
         window.open(result.openUrl, "_blank", "noopener,noreferrer");
-      }
-
-      // Small-team flow: wa.me sends text only — open image so staff can attach it in WhatsApp.
-      if (selectedImageUrl) {
-        window.setTimeout(() => {
-          window.open(selectedImageUrl, "_blank", "noopener,noreferrer");
-        }, 400);
       }
 
       setOpen(false);
@@ -181,76 +178,46 @@ export function WhatsAppMessageButton({
             {error ? (
               <p className="text-sm text-destructive">{error}</p>
             ) : null}
-            {templateOptions.length > 0 ? (
-              <div className="space-y-2">
-                <Label htmlFor={`wa-tpl-${customerId ?? inquiryId ?? "new"}`}>
-                  Template
-                </Label>
-                <select
-                  id={`wa-tpl-${customerId ?? inquiryId ?? "new"}`}
-                  className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                  value={selectedTemplateId}
-                  onChange={(e) => applyTemplate(e.target.value)}
-                >
-                  <option value="">Custom message</option>
-                  {templateOptions.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-                {selectedImageUrl ? (
-                  <div className="overflow-hidden rounded-md border bg-muted/20">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={selectedImageUrl}
-                      alt=""
-                      className="max-h-[min(28vh,9rem)] w-full object-contain sm:max-h-36"
-                    />
-                    <div className="space-y-2 px-2.5 py-2">
-                      <ol className="list-decimal space-y-1 pl-4 text-[11px] leading-snug text-muted-foreground">
-                        <li>
-                          <span className="font-medium text-foreground">Send</span>{" "}
-                          opens WhatsApp with the text filled in.
-                        </li>
-                        <li>
-                          In WhatsApp, tap attach / paperclip and pick this image
-                          (image tab also opens after Send).
-                        </li>
-                      </ol>
-                      <div className="flex flex-wrap gap-1.5">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 gap-1.5 text-xs"
-                          onClick={openTemplateImage}
-                        >
-                          <ExternalLink className="size-3.5" />
-                          Open image
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 gap-1.5 text-xs"
-                          onClick={downloadTemplateImage}
-                        >
-                          <Download className="size-3.5" />
-                          Download
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+
             <div className="space-y-2">
-              <Label htmlFor={`wa-msg-${customerId ?? inquiryId ?? "new"}`}>
-                Message
-              </Label>
+              <Label htmlFor={`wa-tpl-${fieldId}`}>Template</Label>
+              <select
+                id={`wa-tpl-${fieldId}`}
+                className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-wait disabled:opacity-70"
+                value={selectedTemplateId}
+                disabled={templatesLoading}
+                onChange={(e) => onTemplateChange(e.target.value)}
+              >
+                {templatesLoading ? (
+                  <option value="">Loading templates…</option>
+                ) : (
+                  <>
+                    <option value="">Custom message</option>
+                    {templateOptions.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                    {templateOptions.length === 0 ? (
+                      <option value={ADD_TEMPLATE_VALUE}>
+                        + Add template…
+                      </option>
+                    ) : null}
+                  </>
+                )}
+              </select>
+              {!templatesLoading && templateOptions.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">
+                  No templates yet. Choose &quot;+ Add template…&quot; to create
+                  one.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={`wa-msg-${fieldId}`}>Message</Label>
               <Textarea
-                id={`wa-msg-${customerId ?? inquiryId ?? "new"}`}
+                id={`wa-msg-${fieldId}`}
                 rows={4}
                 value={message}
                 placeholder="Type your message…"
@@ -276,11 +243,7 @@ export function WhatsAppMessageButton({
               disabled={pending || !message.trim()}
               onClick={handleSend}
             >
-              {pending
-                ? "Opening…"
-                : selectedImageUrl
-                  ? "Send text + open image"
-                  : "Send"}
+              {pending ? "Opening…" : "Send"}
             </Button>
           </div>
         </DialogContent>

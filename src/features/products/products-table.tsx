@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
   createProductGridRowAction,
   deleteProductAction,
-  loadProductsGridAction,
   patchProductFieldAction,
 } from "@/actions/products";
+import { useServerSyncedRows } from "@/hooks/use-server-synced-rows";
 import {
   formatGridDate,
   GridSaveIndicator,
@@ -260,35 +260,11 @@ export function ProductsTable({
   const { can } = usePermissions();
   const canUpdate = can("product.update");
   const canCreate = can("product.create");
-  const [rows, setRows] = useState(initialProducts);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string>();
-  const filterKey = JSON.stringify(filters);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setLoadError(undefined);
-    const result = await loadProductsGridAction(filters);
-    if (result.error) {
-      setLoadError(result.error);
-      setLoading(false);
-      return;
-    }
-    setRows(result.products ?? []);
-    setLoading(false);
-  }, [filters]);
-
-  useEffect(() => {
-    void reload();
-  }, [filterKey, reload]);
+  const [rows, setRows] = useServerSyncedRows(initialProducts);
+  void filters;
 
   return (
     <div className="space-y-1.5">
-      {loadError ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {loadError}
-        </p>
-      ) : null}
       <div className="overflow-x-auto rounded-lg border">
         <table className={cn(gridTableClass, "min-w-[720px]")}>
           <thead>
@@ -303,18 +279,17 @@ export function ProductsTable({
             <NewProductRow
               canCreate={canCreate}
               onCreated={(product) => {
-                setRows((prev) => [...prev, product].sort((a, b) => a.name.localeCompare(b.name)));
+                setRows((prev) =>
+                  [...prev, product].sort((a, b) => a.name.localeCompare(b.name)),
+                );
               }}
             />
-            {loading && rows.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">
-                  Loading products…
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                <td
+                  colSpan={4}
+                  className="px-3 py-6 text-center text-xs text-muted-foreground"
+                >
                   No products yet. Use the row above to add one.
                 </td>
               </tr>
@@ -325,7 +300,9 @@ export function ProductsTable({
                   product={product}
                   canUpdate={canUpdate}
                   onUpdated={(next) =>
-                    setRows((prev) => prev.map((r) => (r.id === next.id ? next : r)))
+                    setRows((prev) =>
+                      prev.map((r) => (r.id === next.id ? next : r)),
+                    )
                   }
                   onDeleted={(id) => {
                     setRows((prev) => prev.filter((r) => r.id !== id));

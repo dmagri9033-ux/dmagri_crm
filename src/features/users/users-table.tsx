@@ -1,10 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  loadUsersGridAction,
-  patchUserFieldAction,
-} from "@/actions/users";
+import { useEffect, useRef, useState } from "react";
+import { patchUserFieldAction } from "@/actions/users";
+import { useServerSyncedRows } from "@/hooks/use-server-synced-rows";
 import {
   formatGridDate,
   GridSaveIndicator,
@@ -181,35 +179,11 @@ export function UsersTable({
 }) {
   const { can } = usePermissions();
   const canUpdate = can("user.update");
-  const [rows, setRows] = useState(initialUsers);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string>();
-  const filterKey = JSON.stringify(filters);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setLoadError(undefined);
-    const result = await loadUsersGridAction(filters);
-    if (result.error) {
-      setLoadError(result.error);
-      setLoading(false);
-      return;
-    }
-    setRows(result.users ?? []);
-    setLoading(false);
-  }, [filters]);
-
-  useEffect(() => {
-    void reload();
-  }, [filterKey, reload]);
+  const [rows, setRows] = useServerSyncedRows(initialUsers);
+  void filters;
 
   return (
     <div className="space-y-1.5">
-      {loadError ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {loadError}
-        </p>
-      ) : null}
       <div className="overflow-x-auto rounded-lg border">
         <table className={cn(gridTableClass, "min-w-[920px]")}>
           <thead>
@@ -223,16 +197,7 @@ export function UsersTable({
             </tr>
           </thead>
           <tbody>
-            {loading && rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-3 py-6 text-center text-xs text-muted-foreground"
-                >
-                  Loading users…
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={6}

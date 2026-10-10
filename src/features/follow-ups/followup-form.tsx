@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Customer } from "@/lib/db/customers";
-import type { FollowupWithRelations, InquiryLite } from "@/lib/db/followups";
+import type { FollowupWithRelations } from "@/lib/db/followups";
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -25,8 +25,11 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-export type FollowupInquiryOption = InquiryLite & {
+export type FollowupInquiryOption = {
+  id: string;
+  inquiry_date: string;
   product_name_snapshot: string | null;
+  customer_id: string;
 };
 
 type FollowupFormProps = {

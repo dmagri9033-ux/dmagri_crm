@@ -1,17 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { Eye, Loader2 } from "lucide-react";
-import {
-  loadFollowupsGridAction,
-  patchFollowupFieldAction,
-} from "@/actions/followups";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Eye } from "lucide-react";
+import { patchFollowupFieldAction } from "@/actions/followups";
+import { useServerSyncedRows } from "@/hooks/use-server-synced-rows";
 import {
   gridCellInputClass,
   gridCellMobileClass,
@@ -33,7 +26,9 @@ import type { FollowupInquiryOption } from "@/features/follow-ups/followup-form"
 import { FollowupStatusActions } from "@/features/follow-ups/followup-status-actions";
 import { normalizeMobile } from "@/lib/customers/normalize-mobile";
 import type { FollowupWithRelations } from "@/lib/db/followups";
+import type { Product } from "@/lib/db/products";
 import type { FollowupFilterInput } from "@/validations/followup";
+import { CUSTOMER_TYPES } from "@/validations/customer";
 import { cn } from "@/lib/utils";
 
 function displayMobile(followup: FollowupWithRelations): string {
@@ -52,28 +47,17 @@ function displayCustomerName(followup: FollowupWithRelations): string {
   return followup.customers?.name?.trim() || "";
 }
 
-function inquiryLabel(inquiry: FollowupInquiryOption): string {
-  const product = inquiry.product_name_snapshot || "Inquiry";
-  return `${inquiry.inquiry_date} · ${product}`;
-}
-
-function inquiriesForRow(
-  customerId: string,
-  currentInquiryId: string | null,
-  all: FollowupInquiryOption[],
-): FollowupInquiryOption[] {
-  const filtered = all.filter((i) => i.customer_id === customerId);
-  const pool = filtered.length > 0 ? filtered : all;
-  if (currentInquiryId && !pool.some((i) => i.id === currentInquiryId)) {
-    const current = all.find((i) => i.id === currentInquiryId);
-    if (current) return [current, ...pool];
-  }
-  return pool;
+function initialCustomerType(followup: FollowupWithRelations): string {
+  return (
+    followup.customers?.customer_type ??
+    followup.inquiries?.customer_type ??
+    ""
+  );
 }
 
 function FollowupEditableRow({
   followup,
-  inquiries,
+  products,
   canUpdate,
   hideOnComplete,
   hideOnReopen,
@@ -81,7 +65,7 @@ function FollowupEditableRow({
   onRemoved,
 }: {
   followup: FollowupWithRelations;
-  inquiries: FollowupInquiryOption[];
+  products: Product[];
   canUpdate: boolean;
   hideOnComplete: boolean;
   hideOnReopen: boolean;
@@ -89,6 +73,7 @@ function FollowupEditableRow({
   onRemoved: (id: string) => void;
 }) {
   const isCompleted = Boolean(followup.completed_at);
+  const hasInquiry = Boolean(followup.inquiry_id);
   const [saveState, setSaveState] = useState<GridSaveState>("idle");
   const [error, setError] = useState<string>();
   const [date, setDate] = useState(followup.followup_date);
@@ -96,8 +81,16 @@ function FollowupEditableRow({
     displayCustomerName(followup),
   );
   const [mobile, setMobile] = useState(() => displayMobile(followup));
+  const [customerType, setCustomerType] = useState(() =>
+    initialCustomerType(followup),
+  );
+  const [productId, setProductId] = useState(
+    followup.inquiries?.product_id ?? "",
+  );
+  const [purchased, setPurchased] = useState(
+    Boolean(followup.inquiries?.product_purchased),
+  );
   const [notes, setNotes] = useState(followup.notes);
-  const [inquiryId, setInquiryId] = useState(followup.inquiry_id ?? "");
 
   const mobileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -122,7 +115,9 @@ function FollowupEditableRow({
       setNotes(followup.notes);
     }
     setDate(followup.followup_date);
-    setInquiryId(followup.inquiry_id ?? "");
+    setCustomerType(initialCustomerType(followup));
+    setProductId(followup.inquiries?.product_id ?? "");
+    setPurchased(Boolean(followup.inquiries?.product_purchased));
   }, [followup]);
 
   const saveField = useCallback(
@@ -132,7 +127,9 @@ function FollowupEditableRow({
         | "notes"
         | "mobile"
         | "customer_name"
-        | "inquiry_id",
+        | "customer_type"
+        | "product_id"
+        | "product_purchased",
       value: string,
     ) => {
       if (!canUpdate || isCompleted) return;
@@ -159,7 +156,15 @@ function FollowupEditableRow({
           notesDirtyRef.current = false;
         }
         if (field === "followup_date") setDate(followup.followup_date);
-        if (field === "inquiry_id") setInquiryId(followup.inquiry_id ?? "");
+        if (field === "customer_type") {
+          setCustomerType(initialCustomerType(followup));
+        }
+        if (field === "product_id") {
+          setProductId(followup.inquiries?.product_id ?? "");
+        }
+        if (field === "product_purchased") {
+          setPurchased(Boolean(followup.inquiries?.product_purchased));
+        }
         return;
       }
       if (field === "mobile") mobileDirtyRef.current = false;
@@ -180,12 +185,24 @@ function FollowupEditableRow({
     }, 700);
   }
 
-  const inquiryOptions = inquiriesForRow(
-    followup.customer_id,
-    followup.inquiry_id,
-    inquiries,
-  );
   const editable = canUpdate && !isCompleted;
+
+  const productOptions = products.slice();
+  const linkedProductId = followup.inquiries?.product_id;
+  const linkedProductName = followup.inquiries?.product_name_snapshot;
+  if (
+    linkedProductId &&
+    !productOptions.some((p) => p.id === linkedProductId)
+  ) {
+    productOptions.unshift({
+      id: linkedProductId,
+      name: linkedProductName || "Product",
+      is_active: true,
+      created_at: followup.created_at,
+      updated_at: followup.updated_at,
+      deleted_at: null,
+    });
+  }
 
   return (
     <tr className={gridDataRowClass}>
@@ -259,16 +276,83 @@ function FollowupEditableRow({
             mobile={mobile}
             customerName={customerName || followup.customers?.name || undefined}
             customerId={followup.customer_id}
+            inquiryId={followup.inquiry_id ?? undefined}
           />
         </div>
       </td>
       <td className={gridCellPad}>
+        <select
+          className={gridCellSelectClass}
+          value={customerType}
+          disabled={!editable}
+          onChange={(e) => {
+            setCustomerType(e.target.value);
+            void saveField("customer_type", e.target.value);
+          }}
+        >
+          <option value="">—</option>
+          {CUSTOMER_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {type.charAt(0).toUpperCase() + type.slice(1)}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className={gridCellPad}>
+        <select
+          className={gridCellSelectClass}
+          value={productId}
+          disabled={!editable || !hasInquiry}
+          title={
+            hasInquiry
+              ? undefined
+              : "Follow-up must be linked to an inquiry to set product"
+          }
+          onChange={(e) => {
+            const next = e.target.value;
+            setProductId(next);
+            if (!next) setPurchased(false);
+            void saveField("product_id", next);
+          }}
+        >
+          <option value="">—</option>
+          {productOptions.map((product) => (
+            <option key={product.id} value={product.id}>
+              {product.name}
+              {!product.is_active ? " (inactive)" : ""}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td className={gridCellPad}>
+        <select
+          className={cn(
+            gridCellSelectClass,
+            purchased
+              ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+              : "bg-muted/40",
+          )}
+          value={purchased ? "true" : "false"}
+          disabled={!editable || !hasInquiry || !productId}
+          onChange={(e) => {
+            const next = e.target.value === "true";
+            setPurchased(next);
+            void saveField("product_purchased", next ? "true" : "false");
+          }}
+        >
+          <option value="false">No</option>
+          <option value="true">Yes</option>
+        </select>
+      </td>
+      <td className={gridCellPad}>
         <input
           type="text"
-          className={cn(gridCellInputClass, "min-w-[10rem]")}
+          className={cn(gridCellInputClass, "min-w-[7rem]")}
           value={notes}
           disabled={!editable}
           placeholder="Notes"
+          autoComplete="off"
+          spellCheck={false}
           onFocus={() => {
             editingFieldRef.current = "notes";
           }}
@@ -285,24 +369,6 @@ function FollowupEditableRow({
             }
           }}
         />
-      </td>
-      <td className={gridCellPad}>
-        <select
-          className={gridCellSelectClass}
-          value={inquiryId}
-          disabled={!editable}
-          onChange={(e) => {
-            setInquiryId(e.target.value);
-            void saveField("inquiry_id", e.target.value);
-          }}
-        >
-          <option value="">—</option>
-          {inquiryOptions.map((inquiry) => (
-            <option key={inquiry.id} value={inquiry.id}>
-              {inquiryLabel(inquiry)}
-            </option>
-          ))}
-        </select>
       </td>
       <td className={gridCellPad}>
         <div className="flex items-center justify-end gap-0.5">
@@ -351,11 +417,12 @@ function FollowupEditableRow({
 
 export function FollowupsTable({
   followups: initialFollowups,
-  inquiries,
+  products,
   filters,
 }: {
   followups: FollowupWithRelations[];
-  inquiries: FollowupInquiryOption[];
+  products: Product[];
+  inquiries?: FollowupInquiryOption[];
   filters: Partial<FollowupFilterInput>;
 }) {
   const { can } = usePermissions();
@@ -364,28 +431,7 @@ export function FollowupsTable({
   const hideOnComplete = statusFilter === "open";
   const hideOnReopen = statusFilter === "completed";
 
-  const [rows, setRows] = useState(initialFollowups);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string>();
-
-  const filterKey = JSON.stringify(filters);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setLoadError(undefined);
-    const result = await loadFollowupsGridAction(filters);
-    if (result.error) {
-      setLoadError(result.error);
-      setLoading(false);
-      return;
-    }
-    setRows(result.followups ?? []);
-    setLoading(false);
-  }, [filters]);
-
-  useEffect(() => {
-    void reload();
-  }, [filterKey, reload]);
+  const [rows, setRows] = useServerSyncedRows(initialFollowups);
 
   function upsertRow(followup: FollowupWithRelations) {
     setRows((prev) => {
@@ -403,41 +449,25 @@ export function FollowupsTable({
 
   return (
     <div className="space-y-1.5">
-      {loadError ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          Failed to load follow-ups: {loadError}
-        </p>
-      ) : null}
-
       <div className="overflow-x-auto rounded-lg border">
-        <table className={cn(gridTableClass, "min-w-[980px]")}>
+        <table className={cn(gridTableClass, "min-w-[1100px]")}>
           <thead>
             <tr className={gridHeaderRowClass}>
               <th className={gridHeaderCellClass}>Date</th>
               <th className={gridHeaderCellClass}>Customer</th>
               <th className={gridHeaderCellClass}>Mo No.</th>
+              <th className={gridHeaderCellClass}>Type</th>
+              <th className={gridHeaderCellClass}>Product</th>
+              <th className={gridHeaderCellClass}>Purchased</th>
               <th className={gridHeaderCellClass}>Notes</th>
-              <th className={gridHeaderCellClass}>Inquiry</th>
               <th className={cn(gridHeaderCellClass, "text-right")}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {loading && rows.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
-                  className="px-3 py-6 text-center text-xs text-muted-foreground"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-3.5 animate-spin" />
-                    Loading follow-ups…
-                  </span>
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
+                  colSpan={8}
                   className="px-3 py-6 text-center text-xs text-muted-foreground"
                 >
                   No follow-ups match your filters.
@@ -453,7 +483,7 @@ export function FollowupsTable({
                 <FollowupEditableRow
                   key={followup.id}
                   followup={followup}
-                  inquiries={inquiries}
+                  products={products}
                   canUpdate={canUpdate}
                   hideOnComplete={hideOnComplete}
                   hideOnReopen={hideOnReopen}

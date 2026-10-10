@@ -47,12 +47,49 @@ export async function syncTodayFollowupsToReminders(
 
   if (error) throw new Error(error.message);
 
+  const rows = followups ?? [];
+  if (rows.length === 0) {
+    return {
+      istDate,
+      scanned: 0,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [],
+    };
+  }
+
+  const followupIds = rows.map((r) => r.id);
+  const { data: existingReminders, error: existingError } = await supabase
+    .from("reminders")
+    .select("id, source_followup_id, completed_at, cancelled_at, deleted_at")
+    .in("source_followup_id", followupIds)
+    .is("deleted_at", null);
+
+  if (existingError) throw new Error(existingError.message);
+
+  const existingByFollowup = new Map(
+    (existingReminders ?? [])
+      .filter((r) => r.source_followup_id)
+      .map((r) => [r.source_followup_id as string, r]),
+  );
+
   let created = 0;
   let updated = 0;
   let skipped = 0;
   const errors: string[] = [];
+  const toInsert: {
+    title: string;
+    customer_id: string;
+    inquiry_id: string | null;
+    remind_at: string;
+    notes: string | null;
+    assigned_user_id: string;
+    created_by: string;
+    source_followup_id: string;
+  }[] = [];
 
-  for (const row of followups ?? []) {
+  for (const row of rows) {
     const customerJoin = row.customers as
       | { name: string }
       | { name: string }[]
@@ -66,18 +103,7 @@ export async function syncTodayFollowupsToReminders(
       : "Follow-up due today";
     const notes = row.notes?.trim() || null;
     const remindAt = remindAtIsoForFollowupDate(row.followup_date);
-
-    const { data: existing, error: existingError } = await supabase
-      .from("reminders")
-      .select("id, completed_at, cancelled_at, deleted_at")
-      .eq("source_followup_id", row.id)
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    if (existingError) {
-      errors.push(`${row.id}: ${existingError.message}`);
-      continue;
-    }
+    const existing = existingByFollowup.get(row.id);
 
     if (existing) {
       if (existing.completed_at || existing.cancelled_at) {
@@ -103,7 +129,7 @@ export async function syncTodayFollowupsToReminders(
       continue;
     }
 
-    const { error: insertError } = await supabase.from("reminders").insert({
+    toInsert.push({
       title,
       customer_id: row.customer_id,
       inquiry_id: row.inquiry_id,
@@ -113,23 +139,34 @@ export async function syncTodayFollowupsToReminders(
       created_by: row.created_by,
       source_followup_id: row.id,
     });
+  }
 
+  if (toInsert.length > 0) {
+    const { error: insertError } = await supabase
+      .from("reminders")
+      .insert(toInsert);
     if (insertError) {
-      // Unique race / already linked
-      if (insertError.code === "23505") {
-        skipped += 1;
-        continue;
+      // Fallback: insert one-by-one so one conflict does not fail the batch.
+      for (const row of toInsert) {
+        const { error: oneError } = await supabase.from("reminders").insert(row);
+        if (oneError) {
+          if (oneError.code === "23505") {
+            skipped += 1;
+            continue;
+          }
+          errors.push(`${row.source_followup_id}: ${oneError.message}`);
+          continue;
+        }
+        created += 1;
       }
-      errors.push(`${row.id}: ${insertError.message}`);
-      continue;
+    } else {
+      created += toInsert.length;
     }
-
-    created += 1;
   }
 
   return {
     istDate,
-    scanned: followups?.length ?? 0,
+    scanned: rows.length,
     created,
     updated,
     skipped,

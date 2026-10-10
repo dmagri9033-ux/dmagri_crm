@@ -11,9 +11,9 @@ import {
 import { Check, Eye, Loader2, Plus } from "lucide-react";
 import {
   createInquiryGridRowAction,
-  loadInquiriesGridAction,
   patchInquiryFieldAction,
 } from "@/actions/inquiries";
+import { useServerSyncedRows } from "@/hooks/use-server-synced-rows";
 import {
   gridAddRowClass,
   gridCellInputClass,
@@ -687,30 +687,12 @@ export function InquiriesTable({
   const hideOnComplete = statusFilter === "open";
   const hideOnReopen = statusFilter === "completed";
 
-  const [rows, setRows] = useState(initialInquiries);
+  const [rows, setRows] = useServerSyncedRows(initialInquiries);
   const [products, setProducts] = useState(initialProducts);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string>();
-
-  const filterKey = JSON.stringify(filters);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setLoadError(undefined);
-    const result = await loadInquiriesGridAction(filters);
-    if (result.error) {
-      setLoadError(result.error);
-      setLoading(false);
-      return;
-    }
-    setRows(result.inquiries ?? []);
-    if (result.products?.length) setProducts(result.products);
-    setLoading(false);
-  }, [filters]);
 
   useEffect(() => {
-    void reload();
-  }, [filterKey, reload]);
+    setProducts(initialProducts);
+  }, [initialProducts]);
 
   function removeRow(id: string) {
     setRows((prev) => prev.filter((r) => r.id !== id));
@@ -728,12 +710,6 @@ export function InquiriesTable({
 
   return (
     <div className="space-y-1.5">
-      {loadError ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          Failed to load inquiries: {loadError}
-        </p>
-      ) : null}
-
       <div className="overflow-x-auto rounded-lg border">
         <table className={cn(gridTableClass, "min-w-[1020px]")}>
           <thead>
@@ -758,19 +734,7 @@ export function InquiriesTable({
                 }}
               />
             ) : null}
-            {loading && rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-3 py-6 text-center text-xs text-muted-foreground"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-3.5 animate-spin" />
-                    Loading inquiries…
-                  </span>
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={8}

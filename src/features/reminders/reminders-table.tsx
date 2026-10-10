@@ -8,12 +8,13 @@ import {
   useState,
   useTransition,
 } from "react";
-import { Eye, Loader2, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Eye, Plus } from "lucide-react";
 import {
   createReminderGridRowAction,
-  loadRemindersGridAction,
   patchReminderFieldAction,
 } from "@/actions/reminders";
+import { useServerSyncedRows } from "@/hooks/use-server-synced-rows";
 import {
   GridSaveIndicator,
   gridCellInputClass,
@@ -523,27 +524,9 @@ export function RemindersTable({
   const canUpdate = can("reminder.update");
   const canCreate = can("reminder.create");
 
-  const [rows, setRows] = useState(initialReminders);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string>();
-  const filterKey = JSON.stringify(filters);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setLoadError(undefined);
-    const result = await loadRemindersGridAction(filters);
-    if (result.error) {
-      setLoadError(result.error);
-      setLoading(false);
-      return;
-    }
-    setRows(result.reminders ?? []);
-    setLoading(false);
-  }, [filters]);
-
-  useEffect(() => {
-    void reload();
-  }, [filterKey, reload]);
+  const router = useRouter();
+  const [rows, setRows] = useServerSyncedRows(initialReminders);
+  void filters;
 
   function upsertRow(reminder: ReminderWithRelations) {
     setRows((prev) => {
@@ -557,12 +540,6 @@ export function RemindersTable({
 
   return (
     <div className="space-y-1.5">
-      {loadError ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          Failed to load reminders: {loadError}
-        </p>
-      ) : null}
-
       <div className="overflow-x-auto rounded-lg border">
         <table className={cn(gridTableClass, "min-w-[1180px]")}>
           <thead>
@@ -586,19 +563,7 @@ export function RemindersTable({
                 upsertRow(reminder);
               }}
             />
-            {loading && rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-3 py-6 text-center text-xs text-muted-foreground"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-3.5 animate-spin" />
-                    Loading reminders…
-                  </span>
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={8}
@@ -615,7 +580,7 @@ export function RemindersTable({
                   assignees={assignees}
                   canUpdate={canUpdate}
                   onUpdated={upsertRow}
-                  onReload={() => void reload()}
+                  onReload={() => router.refresh()}
                 />
               ))
             )}

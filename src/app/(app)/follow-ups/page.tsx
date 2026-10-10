@@ -6,7 +6,7 @@ import { FollowupsTable } from "@/features/follow-ups/followups-table";
 import { PageForbidden } from "@/components/shared/page-forbidden";
 import { listCustomers } from "@/lib/db/customers";
 import { listFollowups } from "@/lib/db/followups";
-import { listInquiries } from "@/lib/db/inquiries";
+import { listProducts } from "@/lib/db/products";
 import { requirePagePermission } from "@/lib/rbac/require-page-permission";
 import { followupFilterSchema } from "@/validations/followup";
 
@@ -33,19 +33,12 @@ export default async function FollowUpsPage({
     page: typeof raw.page === "string" ? raw.page : "1",
   });
 
-  const [result, customersResult, inquiriesResult] = await Promise.all([
+  const [result, customersResult, productsResult] = await Promise.all([
     listFollowups(filters),
-    listCustomers({ pageSize: 100, page: 1 }),
-    listInquiries({ pageSize: 100, page: 1, status: "all" }),
+    // Filter dropdown only — keep payload small.
+    listCustomers({ pageSize: 50, page: 1 }),
+    listProducts({ status: "active", pageSize: 100 }),
   ]);
-
-  const inquiryOptions = inquiriesResult.inquiries.map((inquiry) => ({
-    id: inquiry.id,
-    inquiry_date: inquiry.inquiry_date,
-    product_name_snapshot:
-      inquiry.product_name_snapshot || inquiry.products?.name || null,
-    customer_id: inquiry.customer_id,
-  }));
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
@@ -82,7 +75,7 @@ export default async function FollowUpsPage({
 
       <FollowupsTable
         followups={result.followups}
-        inquiries={inquiryOptions}
+        products={productsResult.products}
         filters={filters}
       />
 

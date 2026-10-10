@@ -471,7 +471,10 @@ export async function patchFollowupFieldAction(input: {
     | "mobile"
     | "customer_name"
     | "customer_id"
-    | "inquiry_id";
+    | "inquiry_id"
+    | "customer_type"
+    | "product_id"
+    | "product_purchased";
   value: string;
 }): Promise<FollowupPatchResult> {
   try {
@@ -512,6 +515,67 @@ export async function patchFollowupFieldAction(input: {
         .eq("id", existing.customer_id)
         .is("deleted_at", null);
       if (customerError) throw new Error(customerError.message);
+    } else if (input.field === "customer_type") {
+      const customerType = input.value.trim() || null;
+      const { error: customerError } = await supabase
+        .from("customers")
+        .update({ customer_type: customerType })
+        .eq("id", existing.customer_id)
+        .is("deleted_at", null);
+      if (customerError) throw new Error(customerError.message);
+      if (existing.inquiry_id) {
+        const { error: inquiryError } = await supabase
+          .from("inquiries")
+          .update({ customer_type: customerType })
+          .eq("id", existing.inquiry_id)
+          .is("deleted_at", null);
+        if (inquiryError) throw new Error(inquiryError.message);
+      }
+    } else if (input.field === "product_id") {
+      if (!existing.inquiry_id) {
+        return { error: "Link an inquiry before setting a product." };
+      }
+      const productId = input.value.trim() || null;
+      let productName: string | null = null;
+      if (productId) {
+        const { data: product } = await supabase
+          .from("products")
+          .select("id, name")
+          .eq("id", productId)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (!product) return { error: "Product not found" };
+        productName = product.name;
+      }
+      const inquiryPatch: {
+        product_id: string | null;
+        product_name_snapshot: string | null;
+        product_purchased?: boolean;
+      } = {
+        product_id: productId,
+        product_name_snapshot: productName,
+      };
+      if (!productId) inquiryPatch.product_purchased = false;
+      const { error: inquiryError } = await supabase
+        .from("inquiries")
+        .update(inquiryPatch)
+        .eq("id", existing.inquiry_id)
+        .is("deleted_at", null);
+      if (inquiryError) throw new Error(inquiryError.message);
+    } else if (input.field === "product_purchased") {
+      if (!existing.inquiry_id) {
+        return { error: "Link an inquiry before setting purchased." };
+      }
+      const purchased = input.value === "true";
+      if (purchased && !existing.inquiries?.product_id) {
+        return { error: "Select a product before marking purchased." };
+      }
+      const { error: inquiryError } = await supabase
+        .from("inquiries")
+        .update({ product_purchased: purchased })
+        .eq("id", existing.inquiry_id)
+        .is("deleted_at", null);
+      if (inquiryError) throw new Error(inquiryError.message);
     } else if (input.field === "mobile") {
       const { customerId: nextId, created } = await resolveCustomerForFollowup({
         userId: ctx.userId,

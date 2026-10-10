@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Eye, Loader2, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Eye, Plus } from "lucide-react";
 import {
   createCustomerGridRowAction,
-  loadCustomersGridAction,
   patchCustomerFieldAction,
 } from "@/actions/customers";
+import { useServerSyncedRows } from "@/hooks/use-server-synced-rows";
 import {
   GridSaveIndicator,
   gridAddRowClass,
@@ -517,27 +517,8 @@ export function CustomersTable({
   const canUpdate = can("customer.update");
   const canCreate = can("customer.create");
 
-  const [rows, setRows] = useState(initialCustomers);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string>();
-  const filterKey = JSON.stringify(filters);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setLoadError(undefined);
-    const result = await loadCustomersGridAction(filters);
-    if (result.error) {
-      setLoadError(result.error);
-      setLoading(false);
-      return;
-    }
-    setRows(result.customers ?? []);
-    setLoading(false);
-  }, [filters]);
-
-  useEffect(() => {
-    void reload();
-  }, [filterKey, reload]);
+  const [rows, setRows] = useServerSyncedRows(initialCustomers);
+  void filters;
 
   function upsertRow(customer: CustomerWithProduct) {
     setRows((prev) => {
@@ -551,12 +532,6 @@ export function CustomersTable({
 
   return (
     <div className="space-y-1.5">
-      {loadError ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          Failed to load customers: {loadError}
-        </p>
-      ) : null}
-
       <div className="overflow-x-auto rounded-lg border">
         <table className={cn(gridTableClass, "min-w-[960px]")}>
           <thead>
@@ -578,19 +553,7 @@ export function CustomersTable({
                 upsertRow(customer);
               }}
             />
-            {loading && rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-3 py-6 text-center text-xs text-muted-foreground"
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="size-3.5 animate-spin" />
-                    Loading customers…
-                  </span>
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={7}

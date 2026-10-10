@@ -21,33 +21,6 @@ export type NotificationListResult = {
   reminderCounts: ReminderAlertCounts;
 };
 
-async function countAssignedReminders(
-  userId: string,
-  range: "overdue" | "today",
-): Promise<number> {
-  const supabase = await createClient();
-  const dayStart = startOfTodayIst().toISOString();
-  const dayEnd = endOfTodayIst().toISOString();
-
-  let query = supabase
-    .from("reminders")
-    .select("id", { count: "exact", head: true })
-    .eq("assigned_user_id", userId)
-    .is("deleted_at", null)
-    .is("completed_at", null)
-    .is("cancelled_at", null);
-
-  if (range === "overdue") {
-    query = query.lt("remind_at", dayStart);
-  } else {
-    query = query.gte("remind_at", dayStart).lte("remind_at", dayEnd);
-  }
-
-  const { count, error } = await query;
-  if (error) throw new Error(error.message);
-  return count ?? 0;
-}
-
 export const listMyNotifications = cache(
   async (limit = 25): Promise<NotificationListResult> => {
     const empty: NotificationListResult = {
@@ -62,12 +35,13 @@ export const listMyNotifications = cache(
     const supabase = await createClient();
     // Bell inbox: only alerts generated today (IST) — hide older "7 days ago" rows.
     const todayStartIso = startOfTodayIst().toISOString();
+    const todayEndIso = endOfTodayIst().toISOString();
 
     const [
       { data, error },
       unreadRes,
-      overdue,
-      today,
+      overdueRes,
+      todayRes,
     ] = await Promise.all([
       supabase
         .from("notifications")
@@ -84,12 +58,29 @@ export const listMyNotifications = cache(
         .gte("created_at", todayStartIso)
         .in("kind", ["reminder_today", "reminder_overdue"])
         .is("read_at", null),
-      countAssignedReminders(user.id, "overdue"),
-      countAssignedReminders(user.id, "today"),
+      supabase
+        .from("reminders")
+        .select("id", { count: "exact", head: true })
+        .eq("assigned_user_id", user.id)
+        .is("deleted_at", null)
+        .is("completed_at", null)
+        .is("cancelled_at", null)
+        .lt("remind_at", todayStartIso),
+      supabase
+        .from("reminders")
+        .select("id", { count: "exact", head: true })
+        .eq("assigned_user_id", user.id)
+        .is("deleted_at", null)
+        .is("completed_at", null)
+        .is("cancelled_at", null)
+        .gte("remind_at", todayStartIso)
+        .lte("remind_at", todayEndIso),
     ]);
 
     if (error) throw new Error(error.message);
     if (unreadRes.error) throw new Error(unreadRes.error.message);
+    if (overdueRes.error) throw new Error(overdueRes.error.message);
+    if (todayRes.error) throw new Error(todayRes.error.message);
 
     const unreadCount = unreadRes.count ?? 0;
 
@@ -97,8 +88,8 @@ export const listMyNotifications = cache(
       notifications: data ?? [],
       unreadCount,
       reminderCounts: {
-        overdue,
-        today,
+        overdue: overdueRes.count ?? 0,
+        today: todayRes.count ?? 0,
         unread: unreadCount,
       },
     };

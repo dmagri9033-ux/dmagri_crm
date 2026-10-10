@@ -52,9 +52,16 @@ export async function generateReminderNotifications(
     throw new Error(error.message);
   }
 
-  let created = 0;
   let skipped = 0;
   const errors: string[] = [];
+  const toInsert: {
+    user_id: string;
+    reminder_id: string;
+    kind: ReminderNotificationKind;
+    title: string;
+    body: string;
+    dedupe_key: string;
+  }[] = [];
 
   for (const row of reminders ?? []) {
     const status = getReminderUiStatus(
@@ -91,7 +98,7 @@ export async function generateReminderNotifications(
       ? `Customer: ${customerName}`
       : "Open Reminders to review.";
 
-    const { error: insertError } = await supabase.from("notifications").insert({
+    toInsert.push({
       user_id: row.assigned_user_id,
       reminder_id: row.id,
       kind,
@@ -99,17 +106,36 @@ export async function generateReminderNotifications(
       body,
       dedupe_key: dedupeKey,
     });
+  }
+
+  let created = 0;
+  if (toInsert.length > 0) {
+    const { error: insertError } = await supabase
+      .from("notifications")
+      .upsert(toInsert, {
+        onConflict: "dedupe_key",
+        ignoreDuplicates: true,
+      });
 
     if (insertError) {
-      if (insertError.code === "23505") {
-        skipped += 1;
-        continue;
+      for (const row of toInsert) {
+        const { error: oneError } = await supabase
+          .from("notifications")
+          .insert(row);
+        if (oneError) {
+          if (oneError.code === "23505") {
+            skipped += 1;
+            continue;
+          }
+          errors.push(`${row.reminder_id}: ${oneError.message}`);
+          continue;
+        }
+        created += 1;
       }
-      errors.push(`${row.id}: ${insertError.message}`);
-      continue;
+    } else {
+      // Upsert with ignoreDuplicates does not report how many were new.
+      created = toInsert.length;
     }
-
-    created += 1;
   }
 
   return {

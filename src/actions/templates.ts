@@ -18,15 +18,6 @@ import {
   type TemplateFilterInput,
 } from "@/validations/template";
 
-const TEMPLATE_BUCKET = "whatsapp-templates";
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-]);
-
 export type TemplateActionState = {
   error?: string;
   success?: string;
@@ -41,41 +32,6 @@ export type TemplateGridResult = {
   templates?: WhatsAppTemplate[];
   total?: number;
 };
-
-function sanitizeFileExt(mime: string): string {
-  if (mime === "image/jpeg") return "jpg";
-  if (mime === "image/png") return "png";
-  if (mime === "image/webp") return "webp";
-  if (mime === "image/gif") return "gif";
-  return "bin";
-}
-
-async function uploadTemplateImage(
-  templateId: string,
-  file: File,
-): Promise<string> {
-  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-    throw new Error("Image must be JPEG, PNG, WebP, or GIF");
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
-    throw new Error("Image must be 5 MB or smaller");
-  }
-
-  const supabase = await createClient();
-  const ext = sanitizeFileExt(file.type);
-  const path = `${templateId}/cover.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const { error } = await supabase.storage
-    .from(TEMPLATE_BUCKET)
-    .upload(path, buffer, {
-      upsert: true,
-      contentType: file.type,
-    });
-
-  if (error) throw new Error(error.message);
-  return path;
-}
 
 export async function loadTemplatesGridAction(
   rawFilters: Partial<TemplateFilterInput> = {},
@@ -117,16 +73,18 @@ export async function loadWhatsAppTemplateOptionsAction(): Promise<{
   }
 }
 
-export async function createTemplateGridRowAction(
+export async function createTemplateAction(
   _prev: TemplateActionState,
   formData: FormData,
-): Promise<TemplateGridResult> {
+): Promise<TemplateActionState> {
   try {
     const ctx = await authorize("template.create");
     const parsed = templateFormSchema.safeParse({
       name: formData.get("name"),
       content: formData.get("content"),
-      is_active: formData.get("is_active") === "true",
+      is_active:
+        formData.get("is_active") === "on" ||
+        formData.get("is_active") === "true",
     });
 
     if (!parsed.success) {
@@ -142,7 +100,7 @@ export async function createTemplateGridRowAction(
         is_active: parsed.data.is_active,
         created_by: ctx.userId,
       })
-      .select("*")
+      .select("id")
       .single();
 
     if (error) {
@@ -152,70 +110,55 @@ export async function createTemplateGridRowAction(
       throw new Error(error.message);
     }
 
-    let imagePath: string | null = null;
-    const imageFile = formData.get("image");
-    if (imageFile instanceof File && imageFile.size > 0) {
-      imagePath = await uploadTemplateImage(data.id, imageFile);
-      const { error: updateError } = await supabase
-        .from("whatsapp_templates")
-        .update({ image_storage_path: imagePath })
-        .eq("id", data.id);
-      if (updateError) throw new Error(updateError.message);
-    }
-
     await logActivity({
       actorId: ctx.userId,
       action: "TEMPLATE_CREATED",
       module: "templates",
       entityType: "whatsapp_template",
       entityId: data.id,
-      metadata: { name: parsed.data.name, hasImage: Boolean(imagePath) },
+      metadata: { name: parsed.data.name },
     });
 
     revalidatePath("/templates");
-    const refreshed = await getWhatsAppTemplateById(data.id);
-    return {
-      success: "Template created.",
-      templateId: data.id,
-      template: refreshed ?? undefined,
-    };
+    return { success: "Template created.", templateId: data.id };
   } catch (error) {
     return toActionError(error);
   }
 }
 
-export async function patchTemplateFieldAction(input: {
-  templateId: string;
-  field: "name" | "content" | "is_active";
-  value: string;
-}): Promise<TemplateGridResult> {
+export async function updateTemplateAction(
+  _prev: TemplateActionState,
+  formData: FormData,
+): Promise<TemplateActionState> {
   try {
-    await authorize("template.update");
-    const existing = await getWhatsAppTemplateById(input.templateId);
+    const ctx = await authorize("template.update");
+    const templateId = String(formData.get("templateId") || "");
+    if (!templateId) return { error: "Missing template id" };
+
+    const parsed = templateFormSchema.safeParse({
+      name: formData.get("name"),
+      content: formData.get("content"),
+      is_active:
+        formData.get("is_active") === "on" ||
+        formData.get("is_active") === "true",
+    });
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "Invalid template" };
+    }
+
+    const existing = await getWhatsAppTemplateById(templateId);
     if (!existing) return { error: "Template not found" };
 
     const supabase = await createClient();
-    const patch: Partial<WhatsAppTemplate> = {};
-
-    if (input.field === "name") {
-      const name = input.value.trim();
-      if (name.length < 2) return { error: "Name is too short" };
-      patch.name = name;
-    } else if (input.field === "content") {
-      const content = input.value.trim();
-      if (!content) return { error: "Content is required" };
-      if (content.length > 4096) return { error: "Content is too long" };
-      patch.content = content;
-    } else if (input.field === "is_active") {
-      patch.is_active = input.value === "true";
-    } else {
-      return { error: "Unknown field" };
-    }
-
     const { error } = await supabase
       .from("whatsapp_templates")
-      .update(patch)
-      .eq("id", input.templateId)
+      .update({
+        name: parsed.data.name,
+        content: parsed.data.content,
+        is_active: parsed.data.is_active,
+      })
+      .eq("id", templateId)
       .is("deleted_at", null);
 
     if (error) {
@@ -225,41 +168,20 @@ export async function patchTemplateFieldAction(input: {
       throw new Error(error.message);
     }
 
-    revalidatePath("/templates");
-    const refreshed = await getWhatsAppTemplateById(input.templateId);
-    return { success: "Saved", template: refreshed ?? undefined };
-  } catch (error) {
-    return toActionError(error);
-  }
-}
-
-export async function uploadTemplateImageAction(
-  _prev: TemplateActionState,
-  formData: FormData,
-): Promise<TemplateGridResult> {
-  try {
-    await authorize("template.update");
-    const templateId = String(formData.get("templateId") || "");
-    if (!templateId) return { error: "Missing template id" };
-
-    const file = formData.get("image");
-    if (!(file instanceof File) || file.size === 0) {
-      return { error: "Choose an image file" };
-    }
-
-    const path = await uploadTemplateImage(templateId, file);
-    const supabase = await createClient();
-    const { error } = await supabase
-      .from("whatsapp_templates")
-      .update({ image_storage_path: path })
-      .eq("id", templateId)
-      .is("deleted_at", null);
-
-    if (error) throw new Error(error.message);
+    await logActivity({
+      actorId: ctx.userId,
+      action: "TEMPLATE_UPDATED",
+      module: "templates",
+      entityType: "whatsapp_template",
+      entityId: templateId,
+      metadata: {
+        name: parsed.data.name,
+        is_active: parsed.data.is_active,
+      },
+    });
 
     revalidatePath("/templates");
-    const refreshed = await getWhatsAppTemplateById(templateId);
-    return { success: "Image updated.", template: refreshed ?? undefined };
+    return { success: "Template updated.", templateId };
   } catch (error) {
     return toActionError(error);
   }
